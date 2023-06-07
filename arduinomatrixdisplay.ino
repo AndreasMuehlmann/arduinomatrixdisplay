@@ -12,15 +12,21 @@ Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(16, 16, PIN,
         NEO_GRB            + NEO_KHZ800);
 
 
-int rgb[] = {192, 115, 107};
+// int rgb[] = {255, 0, 0}; // red
+// int rgb[] = {255, 100, 0}; // orange
+// int rgb[] = {255, 160, 0}; // yellow
+// int rgb[] = {0, 255, 0}; // green
+// int rgb[] = {0, 0, 255}; // blue
+int rgb[] = {190, 115, 150}; // lite purple
+// int rgb[] = {255, 80, 120}; // pink
+// int rgb[] = {255, 255, 255}; // white
 uint16_t color = matrix.Color(rgb[0], rgb[1], rgb[2]);
-int mode = 2;
+int mode = 1;
 
 void setup() {
     Serial.begin(9600);
     matrix.begin();
-    matrix.setTextWrap(false);
-    matrix.setBrightness(255);
+    matrix.setBrightness(50);
     matrix.setTextColor(color);
     matrix.setTextSize(1);
 }
@@ -43,41 +49,64 @@ void loop() {
 }
 
 void mode0() {
-    matrix.setPixelColor(0, color);
+    matrix.setTextWrap(false);
+    matrix.fillScreen(0);
+    matrix.setCursor(0, 0);
+    matrix.print("T");
+    matrix.setCursor(5, 0);
+    matrix.print("a");
+    matrix.setCursor(11, -2);
+    matrix.print("s");
+    matrix.setCursor(11, 0);
+    matrix.print("s");
+    matrix.setCursor(0, 9);
+    matrix.print("i");
+    matrix.setCursor(5, 9);
+    matrix.print("l");
+    matrix.setCursor(10, 9);
+    matrix.print("o");
+    matrix.drawPixel(15, 2, 0);
+    matrix.drawPixel(11, 4, 0);
+    matrix.show();
+    delay(100);
 }
 
-void mode1() {
-    /*
-       int x = matrix.width();
-       int pass = 0;
+int x_pos = 0;
+int CHAR_WIDTH = 6;
 
-       matrix.fillScreen(0);
-       matrix.setCursor(x, 0);
-       matrix.print(F("AZ-Delivery"));
-       if(--x < -72) {
-       x = matrix.width();
-       if(++pass >= 3) pass = 0;
-       matrix.setTextColor(colors[pass]);
-       }
-       matrix.show();
-     */
+void mode1() {
+    matrix.setTextWrap(true);
+    matrix.fillScreen(0);
+    matrix.setCursor(x_pos, 0);
+    String text = " Danke fuer Ihren Kauf bei Andi Start-Ups. Beehren Sie uns bald wieder <3.";
+    matrix.print(text);
+    matrix.show();
+    x_pos -= CHAR_WIDTH;
+    if (x_pos < (text.length() + 2) * -CHAR_WIDTH) {
+        x_pos = 0;
+    }
+    delay(800);
 }
 
 double start_faktor = 1.0;
+double soft_cut_off = 0.4;
+double hard_cut_off = 0.2;
 
 void mode2() {
     matrix.fillScreen(0);
     double faktor = start_faktor;
     for(int i = 0; i < SIZE; i++) {
-        matrix.drawLine(i, 0, i, SIZE, matrix.Color(rgb[0] * faktor, rgb[1] * faktor, rgb[2] * faktor));
+        if (faktor < hard_cut_off)
+            faktor = 1.0;
+        if (faktor > soft_cut_off)
+            matrix.drawLine(i, 0, i, SIZE, matrix.Color(rgb[0] * faktor, rgb[1] * faktor, rgb[2] * faktor));
+        else
+            matrix.drawLine(i, 0, i, SIZE, 0);
         faktor -= 1.0 / (double) SIZE;
-        if (faktor < 0)
-          faktor = 1.0;
     }
     start_faktor -= 1.0 / (double) SIZE;
-    if (start_faktor < 0) {
-      start_faktor = 1.0;
-    }
+    if (start_faktor < hard_cut_off)
+        start_faktor = 1.0;
     matrix.show();
     delay(100);
 }
