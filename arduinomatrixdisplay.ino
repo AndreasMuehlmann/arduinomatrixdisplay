@@ -3,9 +3,46 @@
 #include <Adafruit_NeoPixel.h>
 
 
+//TODO: reseting when changingState
+
+
 const int PIN = 7;
 const int SIZE = 16;
 const int CHAR_WIDTH = 6;
+const int MAX_OPTIONS = 10;
+
+
+class Option;
+
+class OptionList {
+public:
+    OptionList();
+    void add(Option*);
+    Option* valueAt(int);
+    int length();
+private:
+    Option* options[MAX_OPTIONS];
+    int count;
+};
+
+OptionList::OptionList() {
+    count = 0;
+}
+
+void OptionList::add(Option* option) {
+    if (count > MAX_OPTIONS - 1)
+        return;
+    options[count] = option;
+    count += 1;
+}
+
+Option* OptionList::valueAt(int index) {
+    return options[index];
+}
+
+int OptionList::length() {
+    return count;
+}
 
 struct Color {
    String name;
@@ -41,7 +78,9 @@ public:
     void longButtonPress();
     void rotationRight();
     void rotationLeft();
+    OptionList* giveGeneralMenuOptions();
     Color getDefaultColor();
+    int getDefaultBrightness();
     void setDefaultBrightness(int);
 private:
     friend class DisplayState;
@@ -93,7 +132,7 @@ public:
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
 private:
-    int x_pos;
+    int xPos;
 };
 
 class AnimationDisplay : public DisplayState {
@@ -110,9 +149,33 @@ private:
     double hard_cut_off;
 };
 
+class Option {
+public:
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
+    virtual String getName(Display*);
+    virtual String getValue(Display*);
+};
+
+class DefaultBrightness : public Option {
+public:
+    String name;
+    DefaultBrightness();
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
+    virtual String getName(Display*);
+    virtual String getValue(Display*);
+};
+
 class Menu : public DisplayState {
 public:
-    Menu();
+    OptionList* options;
+    int optionsIndex;
+    DisplayState* previousDisplayState;
+    bool selected;
+    int xPosName;
+    int xPosValue;
+    Menu(OptionList* options, DisplayState*);
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
@@ -155,12 +218,22 @@ void Display::rotationRight() {
     _state->rotationRight(this);
 }
 
+OptionList* Display::giveGeneralMenuOptions() {
+    OptionList* options = new OptionList();
+    options->add(new DefaultBrightness());
+    return options;
+}
+
 void Display::changeState(DisplayState* s) {
     _state = s;
 }
 
 Color Display::getDefaultColor() {
     return defaultColor;
+};
+
+int Display::getDefaultBrightness() {
+    return defaultBrightness;
 };
 
 void Display::setDefaultBrightness(int brightness) {
@@ -184,12 +257,17 @@ void TurnedOffDisplay::update(Display*) {
     delay(1000);
 }
 
-void TurnedOffDisplay::shortButtonPress(Display*) {}
-void TurnedOffDisplay::longButtonPress(Display*) {}
+void TurnedOffDisplay::shortButtonPress(Display* d) {
+    Menu* generalMenu = new Menu(d->giveGeneralMenuOptions(), this);
+    changeState(d, generalMenu);
+}
+
+void TurnedOffDisplay::longButtonPress(Display* d) {}
 
 void TurnedOffDisplay::rotationLeft(Display* d) {
     changeState(d, d->animationDisplay);
 }
+
 void TurnedOffDisplay::rotationRight(Display* d) {
     changeState(d, d->nameDisplay);
 }
@@ -219,7 +297,11 @@ void NameDisplay::update(Display*) {
     delay(500);
 }
 
-void NameDisplay::shortButtonPress(Display*) {}
+void NameDisplay::shortButtonPress(Display* d) {
+    Menu* generalMenu = new Menu(d->giveGeneralMenuOptions(), this);
+    changeState(d, generalMenu);
+}
+
 void NameDisplay::longButtonPress(Display*) {}
 
 void NameDisplay::rotationLeft(Display* d) {
@@ -230,24 +312,28 @@ void NameDisplay::rotationRight(Display* d) {
 }
 
 TextDisplay::TextDisplay() {
-    x_pos = 0;
+    xPos = 0;
 }
 
 void TextDisplay::update(Display*) {
     matrix.setTextWrap(true);
     matrix.fillScreen(0);
-    matrix.setCursor(x_pos, 0);
+    matrix.setCursor(xPos, 0);
     String text = " Danke fuer Ihren Kauf bei Andi Start-Ups. Beehren Sie uns bald wieder <3.";
     matrix.print(text);
     matrix.show();
-    x_pos -= CHAR_WIDTH;
-    if (x_pos < (text.length() + 2) * -CHAR_WIDTH) {
-        x_pos = 0;
+    xPos -= CHAR_WIDTH;
+    if (xPos < (text.length() + 2) * -CHAR_WIDTH) {
+        xPos = 0;
     }
     delay(500);
 }
 
-void TextDisplay::shortButtonPress(Display*) {}
+void TextDisplay::shortButtonPress(Display* d) {
+    Menu* generalMenu = new Menu(d->giveGeneralMenuOptions(), this);
+    changeState(d, generalMenu);
+}
+
 void TextDisplay::longButtonPress(Display*) {}
 
 void TextDisplay::rotationLeft(Display* d) {
@@ -288,7 +374,11 @@ void AnimationDisplay::update(Display* display) {
     delay(100);
 }
 
-void AnimationDisplay::shortButtonPress(Display*) {}
+void AnimationDisplay::shortButtonPress(Display* d) {
+    Menu* generalMenu = new Menu(d->giveGeneralMenuOptions(), this);
+    changeState(d, generalMenu);
+}
+
 void AnimationDisplay::longButtonPress(Display*) {}
 
 void AnimationDisplay::rotationLeft(Display* d) {
@@ -298,6 +388,104 @@ void AnimationDisplay::rotationLeft(Display* d) {
 void AnimationDisplay::rotationRight(Display* d) {
     changeState(d, d->turnedOffDisplay);
 }
+
+void Option::rotationLeft(Display*) {}
+void Option::rotationRight(Display*) {}
+
+String Option::getName(Display*) {
+    return "not implemented";
+}
+
+String Option::getValue(Display*) {
+    return "not implemented";
+}
+
+DefaultBrightness::DefaultBrightness() {
+    name = "Hell glob";
+}
+
+void DefaultBrightness::rotationLeft(Display* d) {
+    int defaultBrightness = d->getDefaultBrightness();
+    if (defaultBrightness - 5 < 10)
+        return;
+    d->setDefaultBrightness(defaultBrightness - 5);
+}
+
+void DefaultBrightness::rotationRight(Display* d) {
+    int defaultBrightness = d->getDefaultBrightness();
+    if (defaultBrightness + 5 > 255)
+        return;
+    d->setDefaultBrightness(defaultBrightness + 5);
+}
+
+String DefaultBrightness::getName(Display* d) {
+    return name;
+}
+
+String DefaultBrightness::getValue(Display* d) {
+    return String(d->getDefaultBrightness());
+}
+
+Menu::Menu(OptionList* options, DisplayState* previousDisplayState) {
+    this->options = options;
+    this->previousDisplayState = previousDisplayState;
+    optionsIndex = 0;
+    selected = false;
+    xPosName = 0;
+    xPosValue = 0;
+}
+
+void Menu::update(Display* d) {
+    matrix.setTextWrap(false);
+    matrix.fillScreen(0);
+
+    matrix.setCursor(xPosName + 5, 0);
+    String name = options->valueAt(optionsIndex)->getName(d);
+    matrix.print(name);
+    xPosName -= 1;
+    if (xPosName < (name.length()) * -CHAR_WIDTH + 2) {
+        xPosName = 0;
+    }
+
+    matrix.setCursor(xPosValue + 5, 9);
+    String value = options->valueAt(optionsIndex)->getValue(d);
+    matrix.print(value);
+    xPosValue -= 1;
+    if (xPosValue < (value.length()) * -CHAR_WIDTH + 2) {
+        xPosValue = 0;
+    }
+    if (selected) {
+        matrix.drawLine(0, 8, 15, 8, rgbToEncodedColor(d->getDefaultColor().rgb));
+    }
+    matrix.show();
+    delay(200);
+}
+
+void Menu::shortButtonPress(Display* d) {
+    if (selected)
+        selected = false;
+    else
+        selected = true;
+}
+
+void Menu::longButtonPress(Display* d) {
+    changeState(d, previousDisplayState);
+}
+
+void Menu::rotationLeft(Display* d) {
+    if (selected)
+        options->valueAt(optionsIndex)->rotationLeft(d);
+    else if (optionsIndex > 0)
+        optionsIndex -= 1;
+}
+
+void Menu::rotationRight(Display* d) {
+    if (selected)
+        options->valueAt(optionsIndex)->rotationRight(d);
+    else if (optionsIndex < options->length() - 1)
+        optionsIndex += 1;
+}
+
 
 void setup() {
     Serial.begin(9600);
@@ -316,10 +504,7 @@ void loop() {
     if (Serial.available() > 0) {
         String receivedString = Serial.readStringUntil('\n');
         char receivedChar = receivedString.charAt(0);
-        if (receivedString.length() >= 2) {
-            int receivedNumber = receivedString.toInt();
-            display->setDefaultBrightness(receivedNumber);
-        } else if (receivedChar == 's') {
+        if (receivedChar == 's') {
             display->shortButtonPress();
         } else if (receivedChar == 'l') {
             display->longButtonPress();
