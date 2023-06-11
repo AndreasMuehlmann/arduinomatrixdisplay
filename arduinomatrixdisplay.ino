@@ -4,12 +4,14 @@
 
 
 //TODO: reseting when changingState
+//TODO: sometimes text stands
 
 
 const int PIN = 7;
 const int SIZE = 16;
 const int CHAR_WIDTH = 6;
 const int MAX_OPTIONS = 10;
+const int COLORS_AMOUNT = 8;
 
 
 class Option;
@@ -44,27 +46,38 @@ int OptionList::length() {
     return count;
 }
 
-struct Color {
-   String name;
-   int rgb[3];
-};
-
-Color colors[8];
-
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(16, 16, PIN,
         NEO_MATRIX_TOP     + NEO_MATRIX_LEFT  +
         NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG,
         NEO_GRB            + NEO_KHZ800);
 
-uint16_t rgbToEncodedColor(int rgb[3]) {
+class Color {
+public:
+    String name;
+    int rgb[3];
+    Color(String, int, int, int);
+    uint16_t getEncodedColor();
+};
+
+Color::Color(String name, int r, int g, int b) {
+    this->name = name;
+    rgb[0] = r;
+    rgb[1] = g;
+    rgb[2] = b;
+}
+
+uint16_t Color::getEncodedColor() {
     return matrix.Color(rgb[0], rgb[1], rgb[2]);
 }
+
+Color* colors[8];
 
 class DisplayState;
 class TurnedOffDisplay;
 class NameDisplay;
 class TextDisplay;
 class AnimationDisplay;
+class Menu;
 
 class Display {
 public:
@@ -72,22 +85,26 @@ public:
     NameDisplay* nameDisplay;
     TextDisplay* textDisplay;
     AnimationDisplay* animationDisplay;
+    Menu* generalMenu;
     Display();
     void update();
     void shortButtonPress();
     void longButtonPress();
     void rotationRight();
     void rotationLeft();
-    OptionList* giveGeneralMenuOptions();
-    Color getDefaultColor();
+    Color* getDefaultColor();
+    int getDefaultColorIndex();
+    void setDefaultColor(int);
     int getDefaultBrightness();
     void setDefaultBrightness(int);
 private:
     friend class DisplayState;
     void changeState(DisplayState*);
+    OptionList* giveGeneralMenuOptions();
 private:
     DisplayState* _state;
-    Color defaultColor;
+    int defaultColorIndex;
+    Color* defaultColor;
     int defaultBrightness;
 };
 
@@ -131,6 +148,7 @@ public:
     virtual void longButtonPress(Display*);
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
+    void reset();
 private:
     int xPos;
 };
@@ -143,10 +161,11 @@ public:
     virtual void longButtonPress(Display*);
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
+    void reset();
 private:
-    double start_faktor;
-    double soft_cut_off;
-    double hard_cut_off;
+    double startFaktor;
+    double softCutOff;
+    double hardCutOff;
 };
 
 class Option {
@@ -167,34 +186,49 @@ public:
     virtual String getValue(Display*);
 };
 
+class DefaultColor : public Option {
+public:
+    String name;
+    DefaultColor();
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
+    virtual String getName(Display*);
+    virtual String getValue(Display*);
+};
+
 class Menu : public DisplayState {
 public:
+    Menu(OptionList* options);
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
+    void setPreviousDisplayState(DisplayState*);
+    void reset();
+private:
     OptionList* options;
     int optionsIndex;
     DisplayState* previousDisplayState;
     bool selected;
     int xPosName;
     int xPosValue;
-    Menu(OptionList* options, DisplayState*);
-    virtual void update(Display*);
-    virtual void shortButtonPress(Display*);
-    virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
 };
 
 Display::Display() {
     matrix.begin();
-    defaultColor = colors[5];
+    defaultColorIndex = 5;
+    defaultColor = colors[defaultColorIndex];
     defaultBrightness = 50;
     matrix.setBrightness(defaultBrightness);
-    matrix.setTextColor(rgbToEncodedColor(defaultColor.rgb));
+    matrix.setTextColor(defaultColor->getEncodedColor());
     matrix.setTextSize(1);
 
     turnedOffDisplay = new TurnedOffDisplay();
     nameDisplay = new NameDisplay();
     textDisplay = new TextDisplay();
     animationDisplay = new AnimationDisplay();
+    generalMenu = new Menu(giveGeneralMenuOptions());
     _state = nameDisplay;
 }
 
@@ -221,6 +255,7 @@ void Display::rotationRight() {
 OptionList* Display::giveGeneralMenuOptions() {
     OptionList* options = new OptionList();
     options->add(new DefaultBrightness());
+    options->add(new DefaultColor());
     return options;
 }
 
@@ -228,8 +263,18 @@ void Display::changeState(DisplayState* s) {
     _state = s;
 }
 
-Color Display::getDefaultColor() {
+int Display::getDefaultColorIndex() {
+    return defaultColorIndex;
+};
+
+Color* Display::getDefaultColor() {
     return defaultColor;
+};
+
+void Display::setDefaultColor(int index) {
+    defaultColorIndex = index;
+    defaultColor = colors[index];
+    matrix.setTextColor(defaultColor->getEncodedColor());
 };
 
 int Display::getDefaultBrightness() {
@@ -258,8 +303,8 @@ void TurnedOffDisplay::update(Display*) {
 }
 
 void TurnedOffDisplay::shortButtonPress(Display* d) {
-    Menu* generalMenu = new Menu(d->giveGeneralMenuOptions(), this);
-    changeState(d, generalMenu);
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
 }
 
 void TurnedOffDisplay::longButtonPress(Display* d) {}
@@ -298,8 +343,8 @@ void NameDisplay::update(Display*) {
 }
 
 void NameDisplay::shortButtonPress(Display* d) {
-    Menu* generalMenu = new Menu(d->giveGeneralMenuOptions(), this);
-    changeState(d, generalMenu);
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
 }
 
 void NameDisplay::longButtonPress(Display*) {}
@@ -330,63 +375,76 @@ void TextDisplay::update(Display*) {
 }
 
 void TextDisplay::shortButtonPress(Display* d) {
-    Menu* generalMenu = new Menu(d->giveGeneralMenuOptions(), this);
-    changeState(d, generalMenu);
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
 }
 
 void TextDisplay::longButtonPress(Display*) {}
 
 void TextDisplay::rotationLeft(Display* d) {
     changeState(d, d->nameDisplay);
+    reset();
 }
 
 void TextDisplay::rotationRight(Display* d) {
     changeState(d, d->animationDisplay);
+    reset();
+}
+
+void TextDisplay::reset() {
+    xPos = 0;
 }
 
 AnimationDisplay::AnimationDisplay() {
-    start_faktor = 1.0;
-    soft_cut_off = 0.4;
-    hard_cut_off = 0.2;
+    startFaktor = 1.0;
+    softCutOff = 0.4;
+    hardCutOff = 0.2;
 }
 
 void AnimationDisplay::update(Display* display) {
-    int faktored_rgb[3];
+    int faktoredRgb[3];
     matrix.fillScreen(0);
-    double faktor = start_faktor;
+    double faktor = startFaktor;
     for (int i = 0; i < SIZE; i++) {
-        if (faktor < hard_cut_off)
+        if (faktor < hardCutOff)
             faktor = 1.0;
-        if (faktor > soft_cut_off) {
-            faktored_rgb[0] = display->getDefaultColor().rgb[0] * faktor;
-            faktored_rgb[1] = display->getDefaultColor().rgb[1] * faktor;
-            faktored_rgb[2] = display->getDefaultColor().rgb[2] * faktor;
-            matrix.drawLine(i, 0, i, SIZE, rgbToEncodedColor(faktored_rgb));
+        if (faktor > softCutOff) {
+            faktoredRgb[0] = display->getDefaultColor()->rgb[0] * faktor;
+            faktoredRgb[1] = display->getDefaultColor()->rgb[1] * faktor;
+            faktoredRgb[2] = display->getDefaultColor()->rgb[2] * faktor;
+            Color* color = new Color("", faktoredRgb[0], faktoredRgb[1], faktoredRgb[2]);
+            matrix.drawLine(i, 0, i, SIZE, color->getEncodedColor());
         }
         else
             matrix.drawLine(i, 0, i, SIZE, 0);
         faktor -= 1.0 / (double) SIZE;
     }
-    start_faktor -= 1.0 / (double) SIZE;
-    if (start_faktor < hard_cut_off)
-        start_faktor = 1.0;
+    startFaktor -= 1.0 / (double) SIZE;
+    if (startFaktor < hardCutOff)
+        startFaktor = 1.0;
     matrix.show();
     delay(100);
 }
 
 void AnimationDisplay::shortButtonPress(Display* d) {
-    Menu* generalMenu = new Menu(d->giveGeneralMenuOptions(), this);
-    changeState(d, generalMenu);
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
 }
 
 void AnimationDisplay::longButtonPress(Display*) {}
 
 void AnimationDisplay::rotationLeft(Display* d) {
     changeState(d, d->textDisplay);
+    reset();
 }
 
 void AnimationDisplay::rotationRight(Display* d) {
     changeState(d, d->turnedOffDisplay);
+    reset();
+}
+
+void AnimationDisplay::reset() {
+    startFaktor = 1.0;
 }
 
 void Option::rotationLeft(Display*) {}
@@ -401,7 +459,7 @@ String Option::getValue(Display*) {
 }
 
 DefaultBrightness::DefaultBrightness() {
-    name = "Hell glob";
+    name = "Helligkeit";
 }
 
 void DefaultBrightness::rotationLeft(Display* d) {
@@ -426,9 +484,32 @@ String DefaultBrightness::getValue(Display* d) {
     return String(d->getDefaultBrightness());
 }
 
-Menu::Menu(OptionList* options, DisplayState* previousDisplayState) {
+DefaultColor::DefaultColor() {
+    name = "Farbe";
+}
+
+void DefaultColor::rotationLeft(Display* d) {
+    int defaultColorIndex = d->getDefaultColorIndex();
+    if (defaultColorIndex > 0)
+        d->setDefaultColor(defaultColorIndex - 1);
+}
+
+void DefaultColor::rotationRight(Display* d) {
+    int defaultColorIndex = d->getDefaultColorIndex();
+    if (defaultColorIndex < COLORS_AMOUNT - 1)
+        d->setDefaultColor(defaultColorIndex + 1);
+}
+
+String DefaultColor::getName(Display* d) {
+    return name;
+}
+
+String DefaultColor::getValue(Display* d) {
+    return d->getDefaultColor()->name;
+}
+
+Menu::Menu(OptionList* options) {
     this->options = options;
-    this->previousDisplayState = previousDisplayState;
     optionsIndex = 0;
     selected = false;
     xPosName = 0;
@@ -455,7 +536,7 @@ void Menu::update(Display* d) {
         xPosValue = 0;
     }
     if (selected) {
-        matrix.drawLine(0, 8, 15, 8, rgbToEncodedColor(d->getDefaultColor().rgb));
+        matrix.drawLine(0, 8, 15, 8, d->getDefaultColor()->getEncodedColor());
     }
     matrix.show();
     delay(200);
@@ -469,6 +550,7 @@ void Menu::shortButtonPress(Display* d) {
 }
 
 void Menu::longButtonPress(Display* d) {
+    reset();
     changeState(d, previousDisplayState);
 }
 
@@ -477,6 +559,8 @@ void Menu::rotationLeft(Display* d) {
         options->valueAt(optionsIndex)->rotationLeft(d);
     else if (optionsIndex > 0)
         optionsIndex -= 1;
+        xPosName = 0;
+        xPosValue = 0;
 }
 
 void Menu::rotationRight(Display* d) {
@@ -484,19 +568,30 @@ void Menu::rotationRight(Display* d) {
         options->valueAt(optionsIndex)->rotationRight(d);
     else if (optionsIndex < options->length() - 1)
         optionsIndex += 1;
+        xPosName = 0;
+        xPosValue = 0;
 }
 
+void Menu::reset() {
+    selected = false;
+    xPosName = 0;
+    xPosValue = 0;
+}
+
+void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
+    this->previousDisplayState = previousDisplayState;
+}
 
 void setup() {
     Serial.begin(9600);
-    colors[0] = {"red", {255, 0, 0}};
-    colors[1] = {"orange", {255, 100, 0}};
-    colors[2] = {"yellow", {255, 160, 0}};
-    colors[3] = {"green", {0, 255, 0}};
-    colors[4] = {"blue", {0, 0, 255}};
-    colors[5] = {"purple", {190, 115, 150}};
-    colors[6] = {"pink", {255, 80, 120}};
-    colors[7] = {"white", {255, 255, 255}};
+    colors[0] = new Color("red", 255, 0, 0);
+    colors[1] = new Color("orange", 255, 100, 0);
+    colors[2] = new Color("yellow", 255, 160, 0);
+    colors[3] = new Color("green", 0, 255, 0);
+    colors[4] = new Color("blue", 0, 0, 255);
+    colors[5] = new Color("purple", 190, 115, 150);
+    colors[6] = new Color("pink", 255, 80, 120);
+    colors[7] = new Color("white", 255, 255, 255);
     display = new Display();
 }
 
