@@ -557,19 +557,21 @@ void Menu::longButtonPress(Display* d) {
 void Menu::rotationLeft(Display* d) {
     if (selected)
         options->valueAt(optionsIndex)->rotationLeft(d);
-    else if (optionsIndex > 0)
+    else if (optionsIndex > 0) {
         optionsIndex -= 1;
         xPosName = 0;
         xPosValue = 0;
+    }
 }
 
 void Menu::rotationRight(Display* d) {
     if (selected)
         options->valueAt(optionsIndex)->rotationRight(d);
-    else if (optionsIndex < options->length() - 1)
+    else if (optionsIndex < options->length() - 1) {
         optionsIndex += 1;
         xPosName = 0;
         xPosValue = 0;
+    }
 }
 
 void Menu::reset() {
@@ -584,14 +586,14 @@ void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
 
 void setup() {
     Serial.begin(9600);
-    colors[0] = new Color("red", 255, 0, 0);
+    colors[0] = new Color("rot", 255, 0, 0);
     colors[1] = new Color("orange", 255, 100, 0);
-    colors[2] = new Color("yellow", 255, 160, 0);
-    colors[3] = new Color("green", 0, 255, 0);
-    colors[4] = new Color("blue", 0, 0, 255);
-    colors[5] = new Color("purple", 190, 115, 150);
+    colors[2] = new Color("gelb", 255, 160, 0);
+    colors[3] = new Color("gruen", 0, 255, 0);
+    colors[4] = new Color("blau", 0, 0, 255);
+    colors[5] = new Color("lila", 190, 115, 150);
     colors[6] = new Color("pink", 255, 80, 120);
-    colors[7] = new Color("white", 255, 255, 255);
+    colors[7] = new Color("weiss", 255, 255, 255);
     display = new Display();
 }
 
