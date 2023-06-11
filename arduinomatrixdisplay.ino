@@ -2,17 +2,23 @@
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
 
+extern unsigned int __bss_end;
+extern void *__brkval;
 
-//TODO: reseting when changingState
-//TODO: sometimes text stands
+int freeMemory() {
+  int free_memory;
+  if ((int)__brkval == 0)
+    free_memory = ((int)&free_memory) - ((int)&__bss_end);
+  else
+    free_memory = ((int)&free_memory) - ((int)__brkval);
+  return free_memory;
+}
 
-
-const int PIN = 7;
-const int SIZE = 16;
-const int CHAR_WIDTH = 6;
-const int MAX_OPTIONS = 10;
-const int COLORS_AMOUNT = 8;
-
+const byte PIN = 7;
+const byte SIZE = 16;
+const byte CHAR_WIDTH = 6;
+const byte MAX_OPTIONS = 10;
+const byte COLORS_AMOUNT = 8;
 
 class Option;
 
@@ -151,6 +157,7 @@ public:
     void reset();
 private:
     int xPos;
+    String text;
 };
 
 class AnimationDisplay : public DisplayState {
@@ -358,13 +365,13 @@ void NameDisplay::rotationRight(Display* d) {
 
 TextDisplay::TextDisplay() {
     xPos = 0;
+    text = F(" Danke fuer Ihren Kauf bei Andi Start-Ups. Beehren Sie uns bald wieder <3.");
 }
 
 void TextDisplay::update(Display*) {
     matrix.setTextWrap(true);
     matrix.fillScreen(0);
     matrix.setCursor(xPos, 0);
-    String text = " Danke fuer Ihren Kauf bei Andi Start-Ups. Beehren Sie uns bald wieder <3.";
     matrix.print(text);
     matrix.show();
     xPos -= CHAR_WIDTH;
@@ -412,8 +419,8 @@ void AnimationDisplay::update(Display* display) {
             faktoredRgb[0] = display->getDefaultColor()->rgb[0] * faktor;
             faktoredRgb[1] = display->getDefaultColor()->rgb[1] * faktor;
             faktoredRgb[2] = display->getDefaultColor()->rgb[2] * faktor;
-            Color* color = new Color("", faktoredRgb[0], faktoredRgb[1], faktoredRgb[2]);
-            matrix.drawLine(i, 0, i, SIZE, color->getEncodedColor());
+            uint16_t encodedColor = matrix.Color(faktoredRgb[0], faktoredRgb[1], faktoredRgb[2]);
+            matrix.drawLine(i, 0, i, SIZE, encodedColor);
         }
         else
             matrix.drawLine(i, 0, i, SIZE, 0);
@@ -451,15 +458,15 @@ void Option::rotationLeft(Display*) {}
 void Option::rotationRight(Display*) {}
 
 String Option::getName(Display*) {
-    return "not implemented";
+    return F("not implemented");
 }
 
 String Option::getValue(Display*) {
-    return "not implemented";
+    return F("not implemented");
 }
 
 DefaultBrightness::DefaultBrightness() {
-    name = "Helligkeit";
+    name = F("Helligkeit");
 }
 
 void DefaultBrightness::rotationLeft(Display* d) {
@@ -485,7 +492,7 @@ String DefaultBrightness::getValue(Display* d) {
 }
 
 DefaultColor::DefaultColor() {
-    name = "Farbe";
+    name = F("Farbe");
 }
 
 void DefaultColor::rotationLeft(Display* d) {
@@ -586,18 +593,21 @@ void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
 
 void setup() {
     Serial.begin(9600);
-    colors[0] = new Color("rot", 255, 0, 0);
-    colors[1] = new Color("orange", 255, 100, 0);
-    colors[2] = new Color("gelb", 255, 160, 0);
-    colors[3] = new Color("gruen", 0, 255, 0);
-    colors[4] = new Color("blau", 0, 0, 255);
-    colors[5] = new Color("lila", 190, 115, 150);
-    colors[6] = new Color("pink", 255, 80, 120);
-    colors[7] = new Color("weiss", 255, 255, 255);
+    colors[0] = new Color(F("rot"), 255, 0, 0);
+    colors[1] = new Color(F("orange"), 255, 100, 0);
+    colors[2] = new Color(F("gelb"), 255, 160, 0);
+    colors[3] = new Color(F("gruen"), 0, 255, 0);
+    colors[4] = new Color(F("blau"), 0, 0, 255);
+    colors[5] = new Color(F("lila"), 190, 115, 150);
+    colors[6] = new Color(F("pink"), 255, 80, 120);
+    colors[7] = new Color(F("weiss"), 255, 255, 255);
     display = new Display();
 }
 
 void loop() {
+    int availableMemory = freeMemory();
+    Serial.print(F("Free memory: "));
+    Serial.println(availableMemory);
     if (Serial.available() > 0) {
         String receivedString = Serial.readStringUntil('\n');
         char receivedChar = receivedString.charAt(0);
