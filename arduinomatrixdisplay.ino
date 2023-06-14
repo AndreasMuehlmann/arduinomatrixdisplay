@@ -1,24 +1,32 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
+#include <KY040rotary.h>
 
-extern unsigned int __bss_end;
-extern void *__brkval;
 
-int freeMemory() {
-  int free_memory;
-  if ((int)__brkval == 0)
-    free_memory = ((int)&free_memory) - ((int)&__bss_end);
-  else
-    free_memory = ((int)&free_memory) - ((int)__brkval);
-  return free_memory;
-}
+//TODO: Rotary Encoder works inconsistent, maybe because off delays (maybe event loop helps)
+//TODO: Color has to be set again after start because of memory issues
+//TODO: Text is not displayed properly in Menu
+//TODO: Specialized Menus
+//TODO: RTC
 
-const byte PIN = 7;
-const byte SIZE = 16;
-const byte CHAR_WIDTH = 6;
-const byte MAX_OPTIONS = 10;
-const byte COLORS_AMOUNT = 8;
+
+const int PIN = 7;
+const int SIZE = 16;
+const int CHAR_WIDTH = 6;
+const int MAX_OPTIONS = 10;
+const int COLORS_AMOUNT = 8;
+
+const int CLK_PIN = 2;
+const int DT_PIN = 3;
+const int SW_PIN = 18;
+
+Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(SIZE, SIZE, PIN,
+        NEO_MATRIX_TOP     + NEO_MATRIX_LEFT  +
+        NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG,
+        NEO_GRB            + NEO_KHZ800);
+
+KY040 ky040(CLK_PIN, DT_PIN, SW_PIN);
 
 class Option;
 
@@ -51,11 +59,6 @@ Option* OptionList::valueAt(int index) {
 int OptionList::length() {
     return count;
 }
-
-Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(16, 16, PIN,
-        NEO_MATRIX_TOP     + NEO_MATRIX_LEFT  +
-        NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG,
-        NEO_GRB            + NEO_KHZ800);
 
 class Color {
 public:
@@ -113,8 +116,6 @@ private:
     Color* defaultColor;
     int defaultBrightness;
 };
-
-Display* display;
 
 class DisplayState {
 public:
@@ -224,11 +225,8 @@ private:
 
 Display::Display() {
     matrix.begin();
-    defaultColorIndex = 5;
-    defaultColor = colors[defaultColorIndex];
-    defaultBrightness = 50;
-    matrix.setBrightness(defaultBrightness);
-    matrix.setTextColor(defaultColor->getEncodedColor());
+    setDefaultColor(5);
+    setDefaultBrightness(50);
     matrix.setTextSize(1);
 
     turnedOffDisplay = new TurnedOffDisplay();
@@ -292,6 +290,8 @@ void Display::setDefaultBrightness(int brightness) {
     defaultBrightness = brightness;
     matrix.setBrightness(defaultBrightness);
 };
+
+Display* display = new Display();
 
 void DisplayState::update(Display*) {}
 void DisplayState::shortButtonPress(Display*) {}
@@ -562,8 +562,10 @@ void Menu::longButtonPress(Display* d) {
 }
 
 void Menu::rotationLeft(Display* d) {
-    if (selected)
+    if (selected) {
         options->valueAt(optionsIndex)->rotationLeft(d);
+        xPosValue = 0;
+    }
     else if (optionsIndex > 0) {
         optionsIndex -= 1;
         xPosName = 0;
@@ -572,8 +574,10 @@ void Menu::rotationLeft(Display* d) {
 }
 
 void Menu::rotationRight(Display* d) {
-    if (selected)
+    if (selected) {
         options->valueAt(optionsIndex)->rotationRight(d);
+        xPosValue = 0;
+    }
     else if (optionsIndex < options->length() - 1) {
         optionsIndex += 1;
         xPosName = 0;
@@ -591,8 +595,32 @@ void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
     this->previousDisplayState = previousDisplayState;
 }
 
+void HandleSwitchInterrupt() {
+  ky040.HandleSwitchInterrupt();
+}
+
+void HandleRotateInterrupt() {
+  ky040.HandleRotateInterrupt();
+}
+
+void shortButtonPress() {
+    display->shortButtonPress();
+    Serial.println("sbp");
+}
+
+void rotationLeft() {
+    display->rotationLeft();
+    Serial.println("rl");
+}
+
+void rotationRight() {
+    display->rotationRight();
+    Serial.println("rr");
+}
+
 void setup() {
     Serial.begin(9600);
+
     colors[0] = new Color(F("rot"), 255, 0, 0);
     colors[1] = new Color(F("orange"), 255, 100, 0);
     colors[2] = new Color(F("gelb"), 255, 160, 0);
@@ -601,13 +629,14 @@ void setup() {
     colors[5] = new Color(F("lila"), 190, 115, 150);
     colors[6] = new Color(F("pink"), 255, 80, 120);
     colors[7] = new Color(F("weiss"), 255, 255, 255);
-    display = new Display();
+    ky040.Begin(HandleSwitchInterrupt, HandleRotateInterrupt);
+    ky040.OnButtonClicked(shortButtonPress);
+    ky040.OnButtonLeft(rotationLeft);
+    ky040.OnButtonRight(rotationRight);
+    
 }
 
 void loop() {
-    int availableMemory = freeMemory();
-    Serial.print(F("Free memory: "));
-    Serial.println(availableMemory);
     if (Serial.available() > 0) {
         String receivedString = Serial.readStringUntil('\n');
         char receivedChar = receivedString.charAt(0);
@@ -621,5 +650,8 @@ void loop() {
             display->rotationRight();
         }
     }
+    display->setDefaultColor(display->getDefaultColorIndex());
+    display->setDefaultBrightness(display->getDefaultBrightness());
     display->update();
+    ky040.Process(millis());
 }
