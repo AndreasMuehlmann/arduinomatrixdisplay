@@ -1,7 +1,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
-#include <KY040rotary.h>
 
 
 //TODO: Rotary Encoder works inconsistent, maybe because off delays (maybe event loop helps)
@@ -19,14 +18,25 @@ const int COLORS_AMOUNT = 8;
 
 const int CLK_PIN = 2;
 const int DT_PIN = 3;
-const int SW_PIN = 18;
+const int SW_PIN_FOR_FALLING = 18;
+const int SW_PIN_FOR_RISING = 19;
 
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(SIZE, SIZE, PIN,
         NEO_MATRIX_TOP     + NEO_MATRIX_LEFT  +
         NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG,
         NEO_GRB            + NEO_KHZ800);
 
-KY040 ky040(CLK_PIN, DT_PIN, SW_PIN);
+
+enum RotationInterruptStates {
+  TIMEOUT,
+  CLK,
+  DT
+};
+
+volatile RotationInterruptStates firstRotationState;
+volatile RotationInterruptStates lastRotationState;
+volatile unsigned long lastTimeRotationInterrupt, startTimeButtonPressed;
+
 
 class Option;
 
@@ -306,7 +316,6 @@ void DisplayState::changeState(Display* d, DisplayState* s) {
 void TurnedOffDisplay::update(Display*) {
     matrix.fillScreen(0);
     matrix.show();
-    delay(1000);
 }
 
 void TurnedOffDisplay::shortButtonPress(Display* d) {
@@ -346,7 +355,6 @@ void NameDisplay::update(Display*) {
     matrix.drawPixel(15, 2, 0);
     matrix.drawPixel(11, 4, 0);
     matrix.show();
-    delay(500);
 }
 
 void NameDisplay::shortButtonPress(Display* d) {
@@ -378,7 +386,6 @@ void TextDisplay::update(Display*) {
     if (xPos < (text.length() + 2) * -CHAR_WIDTH) {
         xPos = 0;
     }
-    delay(500);
 }
 
 void TextDisplay::shortButtonPress(Display* d) {
@@ -430,7 +437,6 @@ void AnimationDisplay::update(Display* display) {
     if (startFaktor < hardCutOff)
         startFaktor = 1.0;
     matrix.show();
-    delay(100);
 }
 
 void AnimationDisplay::shortButtonPress(Display* d) {
@@ -595,27 +601,55 @@ void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
     this->previousDisplayState = previousDisplayState;
 }
 
-void HandleSwitchInterrupt() {
-  ky040.HandleSwitchInterrupt();
+void sw_falling_interrupt() {
+    startTimeButtonPressed = millis();
 }
 
-void HandleRotateInterrupt() {
-  ky040.HandleRotateInterrupt();
+void sw_rising_interrupt() {
+    if (millis() - startTimeButtonPressed > 500) {
+        display->longButtonPress();
+    } else {
+        display->shortButtonPress();
+    }
+
 }
 
-void shortButtonPress() {
-    display->shortButtonPress();
-    Serial.println("sbp");
+void clk_interrupt() {
+    if (millis() - lastTimeRotationInterrupt > 10) {
+        firstRotationState = TIMEOUT;
+        lastRotationState = TIMEOUT;
+    }
+    if (firstRotationState == TIMEOUT) {
+        firstRotationState = CLK;
+    }
+    if (lastRotationState == CLK) {
+        lastTimeRotationInterrupt = millis();
+        return;
+    }
+    if (lastRotationState == DT && firstRotationState == DT) {
+        display->rotationLeft();
+    }
+    lastRotationState = CLK;
+    lastTimeRotationInterrupt = millis();
 }
 
-void rotationLeft() {
-    display->rotationLeft();
-    Serial.println("rl");
-}
-
-void rotationRight() {
-    display->rotationRight();
-    Serial.println("rr");
+void dt_interrupt() {
+    if (millis() - lastTimeRotationInterrupt > 10) {
+        firstRotationState = TIMEOUT;
+        lastRotationState = TIMEOUT;
+    }
+    if (firstRotationState == TIMEOUT) {
+        firstRotationState = DT;
+    }
+    if (lastRotationState == DT) {
+        lastTimeRotationInterrupt = millis();
+        return;
+    }
+    if (lastRotationState == CLK && firstRotationState == CLK) {
+        display->rotationRight();
+    }
+    lastRotationState = DT;
+    lastTimeRotationInterrupt = millis();
 }
 
 void setup() {
@@ -629,11 +663,16 @@ void setup() {
     colors[5] = new Color(F("lila"), 190, 115, 150);
     colors[6] = new Color(F("pink"), 255, 80, 120);
     colors[7] = new Color(F("weiss"), 255, 255, 255);
-    ky040.Begin(HandleSwitchInterrupt, HandleRotateInterrupt);
-    ky040.OnButtonClicked(shortButtonPress);
-    ky040.OnButtonLeft(rotationLeft);
-    ky040.OnButtonRight(rotationRight);
-    
+
+    firstRotationState = TIMEOUT;
+    lastRotationState = TIMEOUT;
+    lastTimeRotationInterrupt = 0;
+    startTimeButtonPressed = 0;
+
+    attachInterrupt(digitalPinToInterrupt(CLK_PIN), clk_interrupt, RISING);
+    attachInterrupt(digitalPinToInterrupt(DT_PIN), dt_interrupt, RISING);
+    attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_FALLING), sw_falling_interrupt, FALLING);
+    attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_RISING), sw_rising_interrupt, RISING);
 }
 
 void loop() {
@@ -653,5 +692,5 @@ void loop() {
     display->setDefaultColor(display->getDefaultColorIndex());
     display->setDefaultBrightness(display->getDefaultBrightness());
     display->update();
-    ky040.Process(millis());
+    delay(100);
 }
