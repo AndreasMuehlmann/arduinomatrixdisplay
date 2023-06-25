@@ -195,6 +195,7 @@ public:
     virtual void rotationRight(Display*);
     void reset();
 private:
+    int tickCount;
     int xPos;
     String text;
 };
@@ -403,9 +404,15 @@ void NameDisplay::rotationRight(Display* d) {
 TextDisplay::TextDisplay() {
     xPos = 0;
     text = F(" Danke fuer Ihren Kauf bei Andi Start-Ups. Beehren Sie uns bald wieder <3.");
+    tickCount = 0;
 }
 
 void TextDisplay::update(Display*) {
+    tickCount += 1;
+    if (tickCount < 5) {
+        return;
+    }
+    tickCount = 0; 
     matrix.setTextWrap(true);
     matrix.fillScreen(0);
     matrix.setCursor(xPos, 0);
@@ -710,8 +717,8 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_FALLING), sw_falling_interrupt, FALLING);
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_RISING), sw_rising_interrupt, RISING);
 
-    events = new List();
     display = new Display();
+    events = new List();
 }
 
 void loop() {
