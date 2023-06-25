@@ -3,9 +3,7 @@
 #include <Adafruit_NeoPixel.h>
 
 
-//TODO: Rotary Encoder works inconsistent, maybe because off delays (maybe event loop helps)
 //TODO: Color has to be set again after start because of memory issues
-//TODO: Text is not displayed properly in Menu
 //TODO: Specialized Menus
 //TODO: RTC
 
@@ -38,37 +36,68 @@ volatile RotationInterruptStates lastRotationState;
 volatile unsigned long lastTimeRotationInterrupt, startTimeButtonPressed;
 
 
-class Option;
 
-class OptionList {
+class Element {};
+
+enum EventEnum {
+    ROTATIONLEFT,
+    ROTATIONRIGHT,
+    SHORTBUTTONPRESS,
+    LONGBUTTONPRESS
+};
+
+class Event : public Element {
 public:
-    OptionList();
-    void add(Option*);
-    Option* valueAt(int);
+    Event(EventEnum);
+    EventEnum eventEnum;
+};
+
+Event::Event(EventEnum eventEnum) {
+    this->eventEnum = eventEnum;
+}
+
+Event* event;
+
+class Option;
+Option* option;
+
+
+class List {
+public:
+    List();
+    void add(Element*);
+    Element* valueAt(int);
     int length();
+    void clear();
 private:
-    Option* options[MAX_OPTIONS];
+    Element* elements[MAX_OPTIONS];
     int count;
 };
 
-OptionList::OptionList() {
+List::List() {
     count = 0;
 }
 
-void OptionList::add(Option* option) {
+void List::add(Element* element) {
     if (count > MAX_OPTIONS - 1)
         return;
-    options[count] = option;
+    elements[count] = element;
     count += 1;
 }
 
-Option* OptionList::valueAt(int index) {
-    return options[index];
+Element* List::valueAt(int index) {
+    return elements[index];
 }
 
-int OptionList::length() {
+int List::length() {
     return count;
 }
+
+void List::clear() {
+    count = 0;
+}
+
+volatile List* events;
 
 class Color {
 public:
@@ -119,7 +148,7 @@ public:
 private:
     friend class DisplayState;
     void changeState(DisplayState*);
-    OptionList* giveGeneralMenuOptions();
+    List* giveGeneralMenuOptions();
 private:
     DisplayState* _state;
     int defaultColorIndex;
@@ -186,7 +215,7 @@ private:
     double hardCutOff;
 };
 
-class Option {
+class Option : public Element {
 public:
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
@@ -216,7 +245,7 @@ public:
 
 class Menu : public DisplayState {
 public:
-    Menu(OptionList* options);
+    Menu(List* options);
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
@@ -225,7 +254,7 @@ public:
     void setPreviousDisplayState(DisplayState*);
     void reset();
 private:
-    OptionList* options;
+    List* options;
     int optionsIndex;
     DisplayState* previousDisplayState;
     bool selected;
@@ -267,8 +296,8 @@ void Display::rotationRight() {
     _state->rotationRight(this);
 }
 
-OptionList* Display::giveGeneralMenuOptions() {
-    OptionList* options = new OptionList();
+List* Display::giveGeneralMenuOptions() {
+    List* options = new List();
     options->add(new DefaultBrightness());
     options->add(new DefaultColor());
     return options;
@@ -521,7 +550,7 @@ String DefaultColor::getValue(Display* d) {
     return d->getDefaultColor()->name;
 }
 
-Menu::Menu(OptionList* options) {
+Menu::Menu(List* options) {
     this->options = options;
     optionsIndex = 0;
     selected = false;
@@ -534,7 +563,8 @@ void Menu::update(Display* d) {
     matrix.fillScreen(0);
 
     matrix.setCursor(xPosName + 5, 0);
-    String name = options->valueAt(optionsIndex)->getName(d);
+    option = options->valueAt(optionsIndex);
+    String name = option->getName(d);
     matrix.print(name);
     xPosName -= 1;
     if (xPosName < (name.length()) * -CHAR_WIDTH + 2) {
@@ -542,7 +572,9 @@ void Menu::update(Display* d) {
     }
 
     matrix.setCursor(xPosValue + 5, 9);
-    String value = options->valueAt(optionsIndex)->getValue(d);
+
+    option = options->valueAt(optionsIndex);
+    String value = option->getValue(d);
     matrix.print(value);
     xPosValue -= 1;
     if (xPosValue < (value.length()) * -CHAR_WIDTH + 2) {
@@ -569,7 +601,8 @@ void Menu::longButtonPress(Display* d) {
 
 void Menu::rotationLeft(Display* d) {
     if (selected) {
-        options->valueAt(optionsIndex)->rotationLeft(d);
+        option = options->valueAt(optionsIndex);
+        option->rotationLeft(d);
         xPosValue = 0;
     }
     else if (optionsIndex > 0) {
@@ -581,7 +614,8 @@ void Menu::rotationLeft(Display* d) {
 
 void Menu::rotationRight(Display* d) {
     if (selected) {
-        options->valueAt(optionsIndex)->rotationRight(d);
+        option = options->valueAt(optionsIndex);
+        option->rotationRight(d);
         xPosValue = 0;
     }
     else if (optionsIndex < options->length() - 1) {
@@ -606,12 +640,16 @@ void sw_falling_interrupt() {
 }
 
 void sw_rising_interrupt() {
-    if (millis() - startTimeButtonPressed > 500) {
-        display->longButtonPress();
-    } else {
-        display->shortButtonPress();
+    if (events->length() != 0) {
+        event = events->valueAt(events->length() - 1);
+        if (event->eventEnum == SHORTBUTTONPRESS || event->eventEnum == LONGBUTTONPRESS)
+            return;
     }
-
+    if (millis() - startTimeButtonPressed > 300) {
+        events->add(new Event(LONGBUTTONPRESS));
+    } else {
+        events->add(new Event(SHORTBUTTONPRESS));
+    }
 }
 
 void clk_interrupt() {
@@ -627,7 +665,7 @@ void clk_interrupt() {
         return;
     }
     if (lastRotationState == DT && firstRotationState == DT) {
-        display->rotationLeft();
+        events->add(new Event(ROTATIONLEFT));
     }
     lastRotationState = CLK;
     lastTimeRotationInterrupt = millis();
@@ -646,7 +684,7 @@ void dt_interrupt() {
         return;
     }
     if (lastRotationState == CLK && firstRotationState == CLK) {
-        display->rotationRight();
+        events->add(new Event(ROTATIONRIGHT));
     }
     lastRotationState = DT;
     lastTimeRotationInterrupt = millis();
@@ -673,6 +711,8 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(DT_PIN), dt_interrupt, RISING);
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_FALLING), sw_falling_interrupt, FALLING);
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_RISING), sw_rising_interrupt, RISING);
+
+    events = new List();
 }
 
 void loop() {
@@ -689,6 +729,24 @@ void loop() {
             display->rotationRight();
         }
     }
+
+    for (int i = 0; i < events->length(); i++) {
+        event = events->valueAt(i);
+        if (event->eventEnum == SHORTBUTTONPRESS) {
+            display->shortButtonPress();
+        }
+        else if (event->eventEnum == LONGBUTTONPRESS) {
+            display->longButtonPress();
+        }
+        else if (event->eventEnum == ROTATIONLEFT) {
+            display->rotationLeft();
+        }
+        else if (event->eventEnum == ROTATIONRIGHT) {
+            display->rotationRight();
+        }
+    }
+    events->clear();
+
     display->setDefaultColor(display->getDefaultColorIndex());
     display->setDefaultBrightness(display->getDefaultBrightness());
     display->update();
