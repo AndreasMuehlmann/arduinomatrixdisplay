@@ -104,6 +104,7 @@ public:
     int rgb[3];
     Color(String, int, int, int);
     uint16_t getEncodedColor();
+    uint16_t getFaktoredEncodedColor(float);
 };
 
 Color::Color(String name, int r, int g, int b) {
@@ -115,6 +116,10 @@ Color::Color(String name, int r, int g, int b) {
 
 uint16_t Color::getEncodedColor() {
     return matrix.Color(rgb[0], rgb[1], rgb[2]);
+}
+
+uint16_t Color::getFaktoredEncodedColor(float faktor) {
+    return matrix.Color(rgb[0] * faktor, rgb[1] * faktor, rgb[2] * faktor);
 }
 
 Color* colors[8];
@@ -213,6 +218,7 @@ private:
     double startFaktor;
     double softCutOff;
     double hardCutOff;
+    double faktor;
 };
 
 class Option : public Element {
@@ -409,7 +415,7 @@ TextDisplay::TextDisplay() {
 
 void TextDisplay::update(Display*) {
     tickCount += 1;
-    if (tickCount < 5) {
+    if (tickCount < 3) {
         return;
     }
     tickCount = 0; 
@@ -452,18 +458,13 @@ AnimationDisplay::AnimationDisplay() {
 }
 
 void AnimationDisplay::update(Display* display) {
-    int faktoredRgb[3];
     matrix.fillScreen(0);
-    double faktor = startFaktor;
+    faktor = startFaktor;
     for (int i = 0; i < SIZE; i++) {
         if (faktor < hardCutOff)
             faktor = 1.0;
         if (faktor > softCutOff) {
-            faktoredRgb[0] = display->getDefaultColor()->rgb[0] * faktor;
-            faktoredRgb[1] = display->getDefaultColor()->rgb[1] * faktor;
-            faktoredRgb[2] = display->getDefaultColor()->rgb[2] * faktor;
-            uint16_t encodedColor = matrix.Color(faktoredRgb[0], faktoredRgb[1], faktoredRgb[2]);
-            matrix.drawLine(i, 0, i, SIZE, encodedColor);
+            matrix.drawLine(i, 0, i, SIZE, display->getDefaultColor()->getFaktoredEncodedColor(faktor));
         }
         else
             matrix.drawLine(i, 0, i, SIZE, 0);
@@ -568,6 +569,9 @@ Menu::Menu(List* options) {
 void Menu::update(Display* d) {
     matrix.setTextWrap(false);
     matrix.fillScreen(0);
+    if (selected) {
+        matrix.fillRect(0, 0, 16, 8, d->getDefaultColor()->getFaktoredEncodedColor(0.3));
+    }
 
     matrix.setCursor(xPosName + 5, 0);
     option = options->valueAt(optionsIndex);
@@ -578,7 +582,7 @@ void Menu::update(Display* d) {
         xPosName = 0;
     }
 
-    matrix.setCursor(xPosValue + 5, 9);
+    matrix.setCursor(xPosValue + 5, 8);
 
     option = options->valueAt(optionsIndex);
     String value = option->getValue(d);
@@ -586,9 +590,6 @@ void Menu::update(Display* d) {
     xPosValue -= 1;
     if (xPosValue < (value.length()) * -CHAR_WIDTH + 2) {
         xPosValue = 0;
-    }
-    if (selected) {
-        matrix.drawLine(0, 8, 15, 8, d->getDefaultColor()->getEncodedColor());
     }
     matrix.show();
     delay(200);
