@@ -3,7 +3,6 @@
 #include <Adafruit_NeoPixel.h>
 
 
-//TODO: Color has to be set again after start because of memory issues
 //TODO: Specialized Menus
 //TODO: RTC
 
@@ -264,8 +263,6 @@ private:
 
 Display::Display() {
     matrix.begin();
-    setDefaultColor(5);
-    setDefaultBrightness(50);
     matrix.setTextSize(1);
 
     turnedOffDisplay = new TurnedOffDisplay();
@@ -274,6 +271,9 @@ Display::Display() {
     animationDisplay = new AnimationDisplay();
     generalMenu = new Menu(giveGeneralMenuOptions());
     _state = nameDisplay;
+
+    setDefaultColor(5);
+    setDefaultBrightness(50);
 }
 
 void Display::update() {
@@ -330,7 +330,7 @@ void Display::setDefaultBrightness(int brightness) {
     matrix.setBrightness(defaultBrightness);
 };
 
-Display* display = new Display();
+Display* display;
 
 void DisplayState::update(Display*) {}
 void DisplayState::shortButtonPress(Display*) {}
@@ -691,8 +691,6 @@ void dt_interrupt() {
 }
 
 void setup() {
-    Serial.begin(9600);
-
     colors[0] = new Color(F("rot"), 255, 0, 0);
     colors[1] = new Color(F("orange"), 255, 100, 0);
     colors[2] = new Color(F("gelb"), 255, 160, 0);
@@ -713,23 +711,10 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_RISING), sw_rising_interrupt, RISING);
 
     events = new List();
+    display = new Display();
 }
 
 void loop() {
-    if (Serial.available() > 0) {
-        String receivedString = Serial.readStringUntil('\n');
-        char receivedChar = receivedString.charAt(0);
-        if (receivedChar == 's') {
-            display->shortButtonPress();
-        } else if (receivedChar == 'l') {
-            display->longButtonPress();
-        } else if (receivedChar == 'L') {
-            display->rotationLeft();
-        } else if (receivedChar == 'R') {
-            display->rotationRight();
-        }
-    }
-
     for (int i = 0; i < events->length(); i++) {
         event = events->valueAt(i);
         if (event->eventEnum == SHORTBUTTONPRESS) {
@@ -747,8 +732,6 @@ void loop() {
     }
     events->clear();
 
-    display->setDefaultColor(display->getDefaultColorIndex());
-    display->setDefaultBrightness(display->getDefaultBrightness());
     display->update();
     delay(100);
 }
