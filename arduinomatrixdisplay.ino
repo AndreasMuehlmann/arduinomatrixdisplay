@@ -1,13 +1,14 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
-
+#include <Wire.h>
+#include <RTClib.h>
 
 //TODO: Specialized Menus
 //TODO: RTC
 
 
-const int PIN = 7;
+const int MATRIXDATAPIN = 7;
 const int SIZE = 16;
 const int CHAR_WIDTH = 6;
 const int MAX_OPTIONS = 10;
@@ -18,11 +19,10 @@ const int DT_PIN = 3;
 const int SW_PIN_FOR_FALLING = 18;
 const int SW_PIN_FOR_RISING = 19;
 
-Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(SIZE, SIZE, PIN,
+Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(SIZE, SIZE, MATRIXDATAPIN,
         NEO_MATRIX_TOP     + NEO_MATRIX_LEFT  +
         NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG,
         NEO_GRB            + NEO_KHZ800);
-
 
 enum RotationInterruptStates {
   TIMEOUT,
@@ -221,6 +221,16 @@ private:
     double faktor;
 };
 
+class TimeDisplay : public DisplayState {
+public:
+    TimeDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
+};
+
 class Option : public Element {
 public:
     virtual void rotationLeft(Display*);
@@ -266,6 +276,14 @@ private:
     bool selected;
     int xPosName;
     int xPosValue;
+};
+class RealTimeClock {
+public:
+    RealTimeClock();
+    void setTime(DateTime);
+    DateTime getTime();
+private:
+    RTC_DS3231 rtc;
 };
 
 Display::Display() {
@@ -497,6 +515,28 @@ void AnimationDisplay::reset() {
     startFaktor = 1.0;
 }
 
+TimeDisplay::TimeDisplay() {}
+
+void TimeDisplay::update(Display* display) {
+    matrix.fillScreen(0);
+    matrix.show();
+}
+
+void TimeDisplay::shortButtonPress(Display* d) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+void TimeDisplay::longButtonPress(Display*) {}
+
+void TimeDisplay::rotationLeft(Display* d) {
+    changeState(d, d->nameDisplay);
+}
+
+void TimeDisplay::rotationRight(Display* d) {
+    changeState(d, d->textDisplay);
+}
+
 void Option::rotationLeft(Display*) {}
 void Option::rotationRight(Display*) {}
 
@@ -643,8 +683,24 @@ void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
     this->previousDisplayState = previousDisplayState;
 }
 
+RealTimeClock::RealTimeClock() {
+    Wire.begin();
+    if (!rtc.begin()) {
+        Serial.println("RTC nicht gefunden!");
+    }
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+}
+
+void RealTimeClock::setTime(DateTime dateTime) {
+    rtc.adjust(dateTime);
+}
+
+DateTime RealTimeClock::getTime() {
+    return rtc.now();
+}
 void sw_falling_interrupt() {
     startTimeButtonPressed = millis();
+    Serial.println("sw");
 }
 
 void sw_rising_interrupt() {
@@ -661,6 +717,7 @@ void sw_rising_interrupt() {
 }
 
 void clk_interrupt() {
+    Serial.println("clk");
     if (millis() - lastTimeRotationInterrupt > 10) {
         firstRotationState = TIMEOUT;
         lastRotationState = TIMEOUT;
@@ -680,6 +737,7 @@ void clk_interrupt() {
 }
 
 void dt_interrupt() {
+    Serial.println("dt");
     if (millis() - lastTimeRotationInterrupt > 10) {
         firstRotationState = TIMEOUT;
         lastRotationState = TIMEOUT;
@@ -698,15 +756,10 @@ void dt_interrupt() {
     lastTimeRotationInterrupt = millis();
 }
 
+RealTimeClock* realTimeClock;
+
 void setup() {
-    colors[0] = new Color(F("rot"), 255, 0, 0);
-    colors[1] = new Color(F("orange"), 255, 100, 0);
-    colors[2] = new Color(F("gelb"), 255, 160, 0);
-    colors[3] = new Color(F("gruen"), 0, 255, 0);
-    colors[4] = new Color(F("blau"), 0, 0, 255);
-    colors[5] = new Color(F("lila"), 190, 115, 150);
-    colors[6] = new Color(F("pink"), 255, 80, 120);
-    colors[7] = new Color(F("weiss"), 255, 255, 255);
+    Serial.begin(9600);
 
     firstRotationState = TIMEOUT;
     lastRotationState = TIMEOUT;
@@ -718,8 +771,20 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_FALLING), sw_falling_interrupt, FALLING);
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_RISING), sw_rising_interrupt, RISING);
 
-    display = new Display();
     events = new List();
+
+    colors[0] = new Color(F("rot"), 255, 0, 0);
+    colors[1] = new Color(F("orange"), 255, 100, 0);
+    colors[2] = new Color(F("gelb"), 255, 160, 0);
+    colors[3] = new Color(F("gruen"), 0, 255, 0);
+    colors[4] = new Color(F("blau"), 0, 0, 255);
+    colors[5] = new Color(F("lila"), 190, 115, 150);
+    colors[6] = new Color(F("pink"), 255, 80, 120);
+    colors[7] = new Color(F("weiss"), 255, 255, 255);
+
+    display = new Display();
+
+    realTimeClock = new RealTimeClock();
 }
 
 void loop() {
@@ -741,5 +806,21 @@ void loop() {
     events->clear();
 
     display->update();
+    /*
+    DateTime now = realTimeClock->getTime();
+
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(' ');
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
+    */
     delay(100);
 }
