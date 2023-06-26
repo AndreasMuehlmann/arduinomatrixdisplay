@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <RTClib.h>
 
+
 //TODO: Specialized Menus
 //TODO: RTC
 
@@ -33,7 +34,6 @@ enum RotationInterruptStates {
 volatile RotationInterruptStates firstRotationState;
 volatile RotationInterruptStates lastRotationState;
 volatile unsigned long lastTimeRotationInterrupt, startTimeButtonPressed;
-
 
 
 class Element {};
@@ -700,7 +700,6 @@ DateTime RealTimeClock::getTime() {
 }
 void sw_falling_interrupt() {
     startTimeButtonPressed = millis();
-    Serial.println("sw");
 }
 
 void sw_rising_interrupt() {
@@ -717,7 +716,6 @@ void sw_rising_interrupt() {
 }
 
 void clk_interrupt() {
-    Serial.println("clk");
     if (millis() - lastTimeRotationInterrupt > 10) {
         firstRotationState = TIMEOUT;
         lastRotationState = TIMEOUT;
@@ -737,7 +735,6 @@ void clk_interrupt() {
 }
 
 void dt_interrupt() {
-    Serial.println("dt");
     if (millis() - lastTimeRotationInterrupt > 10) {
         firstRotationState = TIMEOUT;
         lastRotationState = TIMEOUT;
@@ -806,7 +803,6 @@ void loop() {
     events->clear();
 
     display->update();
-    /*
     DateTime now = realTimeClock->getTime();
 
     Serial.print(now.year(), DEC);
@@ -821,6 +817,5 @@ void loop() {
     Serial.print(':');
     Serial.print(now.second(), DEC);
     Serial.println();
-    */
     delay(100);
 }
