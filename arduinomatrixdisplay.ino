@@ -5,8 +5,8 @@
 #include <RTClib.h>
 
 
+//TODO: Time Display (5By3NumberDrawer)
 //TODO: Specialized Menus
-//TODO: RTC
 
 
 const int MATRIXDATAPIN = 7;
@@ -59,7 +59,6 @@ Event* event;
 
 class Option;
 Option* option;
-
 
 class List {
 public:
@@ -124,17 +123,149 @@ uint16_t Color::getFaktoredEncodedColor(float faktor) {
 
 Color* colors[8];
 
+class NumberDrawer5By3 {
+public:
+    void drawNumbers5By3(String, int, int, uint16_t);
+private:
+    void drawZero(int, int, uint16_t);
+    void drawOne(int, int, uint16_t);
+    void drawTwo(int, int, uint16_t);
+    void drawThree(int, int, uint16_t);
+    void drawFour(int, int, uint16_t);
+    void drawFive(int, int, uint16_t);
+    void drawSix(int, int, uint16_t);
+    void drawSeven(int, int, uint16_t);
+    void drawEight(int, int, uint16_t);
+    void drawNine(int, int, uint16_t);
+};
+
+void NumberDrawer5By3::drawNumbers5By3(String numbers, int x, int y, uint16_t color) {
+    for (int i = 0; i < numbers.length(); i++) {
+        char number = numbers.charAt(i);
+        switch (number) {
+            case '0':
+                drawZero(x, y, color);
+                break;
+            case '1':
+                drawOne(x, y, color);
+                break;
+            case '2':
+                drawTwo(x, y, color);
+                break;
+            case '3':
+                drawThree(x, y, color);
+                break;
+            case '4':
+                drawFour(x, y, color);
+                break;
+            case '5':
+                drawFive(x, y, color);
+                break;
+            case '6':
+                drawSix(x, y, color);
+                break;
+            case '7':
+                drawSeven(x, y, color);
+                break;
+            case '8':
+                drawEight(x, y, color);
+                break;
+            case '9':
+                drawNine(x, y, color);
+                break;
+            default:
+                break;
+        }
+        x += 4;
+    }
+}
+
+void NumberDrawer5By3::drawZero(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x, y + 4, color);
+    matrix.drawLine(x + 2, y, x + 2, y + 4, color);
+    matrix.drawPixel(x + 1, y, color);
+    matrix.drawPixel(x + 1, y + 4, color);
+}
+
+void NumberDrawer5By3::drawOne(int x, int y, uint16_t color) {
+    matrix.drawLine(x + 2, y, x + 2, y + 4, color);
+}
+
+void NumberDrawer5By3::drawTwo(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x + 2, y, color);
+    matrix.drawLine(x, y + 2, x + 2, y + 2, color);
+    matrix.drawLine(x, y + 4, x + 2, y + 4, color);
+    matrix.drawPixel(x + 2, y + 1, color);
+    matrix.drawPixel(x, y + 3, color);
+}
+
+void NumberDrawer5By3::drawThree(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x + 2, y, color);
+    matrix.drawLine(x, y + 2, x + 2, y + 2, color);
+    matrix.drawLine(x, y + 4, x + 2, y + 4, color);
+    matrix.drawPixel(x + 2, y + 1, color);
+    matrix.drawPixel(x + 2, y + 3, color);
+}
+
+void NumberDrawer5By3::drawFour(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x, y + 2, color);
+    matrix.drawLine(x + 2, y, x + 2, y + 4, color);
+    matrix.drawPixel(x + 1, y + 2, color);
+}
+
+void NumberDrawer5By3::drawFive(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x + 2, y, color);
+    matrix.drawLine(x, y + 2, x + 2, y + 2, color);
+    matrix.drawLine(x, y + 4, x + 2, y + 4, color);
+    matrix.drawPixel(x, y + 1, color);
+    matrix.drawPixel(x + 2, y + 3, color);
+}
+
+void NumberDrawer5By3::drawSix(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x + 2, y, color);
+    matrix.drawLine(x, y, x, y + 4, color);
+    matrix.drawLine(x + 2, y + 2, x + 2, y + 4, color);
+    matrix.drawPixel(x + 1, y + 2, color);
+    matrix.drawPixel(x + 1, y + 4, color);
+}
+
+void NumberDrawer5By3::drawSeven(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x + 2, y, color);
+    matrix.drawLine(x + 2, y, x + 2, y + 4, color);
+
+}
+
+void NumberDrawer5By3::drawEight(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x + 2, y, color);
+    matrix.drawLine(x, y + 2, x + 2, y + 2, color);
+    matrix.drawLine(x, y + 4, x + 2, y + 4, color);
+    matrix.drawLine(x, y, x, y + 4, color);
+    matrix.drawLine(x + 2, y, x + 2, y + 4, color);
+}
+
+void NumberDrawer5By3::drawNine(int x, int y, uint16_t color) {
+    matrix.drawLine(x, y, x + 2, y, color);
+    matrix.drawLine(x, y + 2, x + 2, y + 2, color);
+    matrix.drawLine(x, y + 4, x + 2, y + 4, color);
+    matrix.drawLine(x + 2, y, x + 2, y + 4, color);
+    matrix.drawPixel(x, y + 1, color);
+
+}
+
 class DisplayState;
 class TurnedOffDisplay;
 class NameDisplay;
+class TimeDisplay;
 class TextDisplay;
 class AnimationDisplay;
 class Menu;
+class RealTimeClock;
 
 class Display {
 public:
     TurnedOffDisplay* turnedOffDisplay;
     NameDisplay* nameDisplay;
+    TimeDisplay* timeDisplay;
     TextDisplay* textDisplay;
     AnimationDisplay* animationDisplay;
     Menu* generalMenu;
@@ -144,6 +275,7 @@ public:
     void longButtonPress();
     void rotationRight();
     void rotationLeft();
+    void drawNumbers5By3(String numbers, int x, int y);
     Color* getDefaultColor();
     int getDefaultColorIndex();
     void setDefaultColor(int);
@@ -155,6 +287,7 @@ private:
     List* giveGeneralMenuOptions();
 private:
     DisplayState* _state;
+    NumberDrawer5By3* numberDrawer5By3;
     int defaultColorIndex;
     Color* defaultColor;
     int defaultBrightness;
@@ -190,6 +323,18 @@ public:
     virtual void rotationRight(Display*);
 };
 
+class TimeDisplay : public DisplayState {
+public:
+    TimeDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
+private:
+    RealTimeClock* realTimeClock;
+};
+
 class TextDisplay : public DisplayState {
 public:
     TextDisplay();
@@ -219,16 +364,6 @@ private:
     double softCutOff;
     double hardCutOff;
     double faktor;
-};
-
-class TimeDisplay : public DisplayState {
-public:
-    TimeDisplay();
-    virtual void update(Display*);
-    virtual void shortButtonPress(Display*);
-    virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
 };
 
 class Option : public Element {
@@ -277,6 +412,7 @@ private:
     int xPosName;
     int xPosValue;
 };
+
 class RealTimeClock {
 public:
     RealTimeClock();
@@ -292,10 +428,12 @@ Display::Display() {
 
     turnedOffDisplay = new TurnedOffDisplay();
     nameDisplay = new NameDisplay();
+    timeDisplay = new TimeDisplay();
     textDisplay = new TextDisplay();
     animationDisplay = new AnimationDisplay();
     generalMenu = new Menu(giveGeneralMenuOptions());
     _state = nameDisplay;
+    numberDrawer5By3 = new NumberDrawer5By3();
 
     setDefaultColor(5);
     setDefaultBrightness(50);
@@ -319,6 +457,10 @@ void Display::rotationLeft() {
 
 void Display::rotationRight() {
     _state->rotationRight(this);
+}
+
+void Display::drawNumbers5By3(String numbers, int x, int y) {
+    numberDrawer5By3->drawNumbers5By3(numbers, x, y, defaultColor->getEncodedColor());
 }
 
 List* Display::giveGeneralMenuOptions() {
@@ -422,6 +564,34 @@ void NameDisplay::rotationLeft(Display* d) {
     changeState(d, d->turnedOffDisplay);
 }
 void NameDisplay::rotationRight(Display* d) {
+    changeState(d, d->timeDisplay);
+}
+
+TimeDisplay::TimeDisplay() {
+    realTimeClock = new RealTimeClock();
+}
+
+void TimeDisplay::update(Display* display) {
+    matrix.fillScreen(0);
+    DateTime now = realTimeClock->getTime();
+    
+    display->drawNumbers5By3(String(now.hour()), 0, 0);
+    display->drawNumbers5By3(String(now.minute()), 9, 0);
+    matrix.show();
+}
+
+void TimeDisplay::shortButtonPress(Display* d) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+void TimeDisplay::longButtonPress(Display*) {}
+
+void TimeDisplay::rotationLeft(Display* d) {
+    changeState(d, d->nameDisplay);
+}
+
+void TimeDisplay::rotationRight(Display* d) {
     changeState(d, d->textDisplay);
 }
 
@@ -456,7 +626,7 @@ void TextDisplay::shortButtonPress(Display* d) {
 void TextDisplay::longButtonPress(Display*) {}
 
 void TextDisplay::rotationLeft(Display* d) {
-    changeState(d, d->nameDisplay);
+    changeState(d, d->timeDisplay);
     reset();
 }
 
@@ -513,28 +683,6 @@ void AnimationDisplay::rotationRight(Display* d) {
 
 void AnimationDisplay::reset() {
     startFaktor = 1.0;
-}
-
-TimeDisplay::TimeDisplay() {}
-
-void TimeDisplay::update(Display* display) {
-    matrix.fillScreen(0);
-    matrix.show();
-}
-
-void TimeDisplay::shortButtonPress(Display* d) {
-    d->generalMenu->setPreviousDisplayState(this);
-    changeState(d, d->generalMenu);
-}
-
-void TimeDisplay::longButtonPress(Display*) {}
-
-void TimeDisplay::rotationLeft(Display* d) {
-    changeState(d, d->nameDisplay);
-}
-
-void TimeDisplay::rotationRight(Display* d) {
-    changeState(d, d->textDisplay);
 }
 
 void Option::rotationLeft(Display*) {}
@@ -753,8 +901,6 @@ void dt_interrupt() {
     lastTimeRotationInterrupt = millis();
 }
 
-RealTimeClock* realTimeClock;
-
 void setup() {
     Serial.begin(9600);
 
@@ -780,8 +926,6 @@ void setup() {
     colors[7] = new Color(F("weiss"), 255, 255, 255);
 
     display = new Display();
-
-    realTimeClock = new RealTimeClock();
 }
 
 void loop() {
@@ -803,19 +947,5 @@ void loop() {
     events->clear();
 
     display->update();
-    DateTime now = realTimeClock->getTime();
-
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(' ');
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
     delay(100);
 }
