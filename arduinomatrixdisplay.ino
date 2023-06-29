@@ -331,8 +331,12 @@ public:
     virtual void longButtonPress(Display*);
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
+    String addZeroToSingleDigit(String);
 private:
     RealTimeClock* realTimeClock;
+    int x;
+    int y;
+    int hourToTwelve;
 };
 
 class TextDisplay : public DisplayState {
@@ -575,8 +579,47 @@ void TimeDisplay::update(Display* display) {
     matrix.fillScreen(0);
     DateTime now = realTimeClock->getTime();
     
-    display->drawNumbers5By3(String(now.hour()), 0, 0);
-    display->drawNumbers5By3(String(now.minute()), 9, 0);
+    display->drawNumbers5By3(addZeroToSingleDigit(String(now.hour())), 0, 0);
+    display->drawNumbers5By3(addZeroToSingleDigit(String(now.minute())), 9, 0);
+    display->drawNumbers5By3(addZeroToSingleDigit(String(now.second())), 9, 6);
+
+    display->drawNumbers5By3(addZeroToSingleDigit(String(now.day())), 0, 11);
+    matrix.drawPixel(7, 15, display->getDefaultColor()->getEncodedColor());
+    display->drawNumbers5By3(addZeroToSingleDigit(String(now.month())), 8, 11);
+    matrix.drawPixel(15, 15, display->getDefaultColor()->getEncodedColor());
+
+    matrix.drawCircle(3, 8, 2, display->getDefaultColor()->getEncodedColor());
+    if (now.hour() > 12)
+        hourToTwelve = now.hour() - 12;
+    else
+        hourToTwelve = now.hour();
+    if (hourToTwelve == 12) {
+        x = 0;
+        y = 1;
+    } else if (hourToTwelve == 1 || hourToTwelve == 2) {
+        x = 1;
+        y = 1;
+    } else if (hourToTwelve == 3) {
+        x = 1;
+        y = 0;
+    } else if (hourToTwelve == 4 || hourToTwelve == 5) {
+        x = 1;
+        y = -1;
+    } else if (hourToTwelve == 6) {
+        x = 0;
+        y = -1;
+    } else if (hourToTwelve == 7 || hourToTwelve == 8) {
+        x = -1;
+        y = -1;
+    } else if (hourToTwelve == 9) {
+        x = -1;
+        y = 0;
+    } else if (hourToTwelve == 10 || hourToTwelve == 11) {
+        x = -1;
+        y = 1;
+    }
+
+    matrix.drawLine(3, 8, 3 + x, 8 - y, display->getDefaultColor()->getEncodedColor());
     matrix.show();
 }
 
@@ -593,6 +636,13 @@ void TimeDisplay::rotationLeft(Display* d) {
 
 void TimeDisplay::rotationRight(Display* d) {
     changeState(d, d->textDisplay);
+}
+
+String TimeDisplay::addZeroToSingleDigit(String number) {
+    if (number.length() == 1) {
+        return "0" + number;
+    }
+    return number;
 }
 
 TextDisplay::TextDisplay() {
