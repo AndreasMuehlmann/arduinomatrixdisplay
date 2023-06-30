@@ -5,7 +5,6 @@
 #include <RTClib.h>
 
 
-//TODO: Time Display (5By3NumberDrawer)
 //TODO: Specialized Menus
 
 
@@ -269,6 +268,8 @@ public:
     TextDisplay* textDisplay;
     AnimationDisplay* animationDisplay;
     Menu* generalMenu;
+    Menu* timeDisplayMenu;
+    RealTimeClock* realTimeClock;
     Display();
     void update();
     void shortButtonPress();
@@ -285,6 +286,7 @@ private:
     friend class DisplayState;
     void changeState(DisplayState*);
     List* giveGeneralMenuOptions();
+    List* giveTimeDisplayMenuOptions();
 private:
     DisplayState* _state;
     NumberDrawer5By3* numberDrawer5By3;
@@ -376,6 +378,7 @@ public:
     virtual void rotationRight(Display*);
     virtual String getName(Display*);
     virtual String getValue(Display*);
+    virtual void reset(Display*);
 };
 
 class DefaultBrightness : public Option {
@@ -386,6 +389,7 @@ public:
     virtual void rotationRight(Display*);
     virtual String getName(Display*);
     virtual String getValue(Display*);
+    virtual void reset(Display*);
 };
 
 class DefaultColor : public Option {
@@ -396,6 +400,20 @@ public:
     virtual void rotationRight(Display*);
     virtual String getName(Display*);
     virtual String getValue(Display*);
+    virtual void reset(Display*);
+};
+
+class TimeDisplayHour : public Option {
+public:
+    String name;
+    TimeDisplayHour();
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
+    virtual String getName(Display*);
+    virtual String getValue(Display*);
+    virtual void reset(Display*);
+private:
+    int increment;
 };
 
 class Menu : public DisplayState {
@@ -433,14 +451,16 @@ Display::Display() {
     turnedOffDisplay = new TurnedOffDisplay();
     nameDisplay = new NameDisplay();
     timeDisplay = new TimeDisplay();
+    timeDisplayMenu = new Menu(giveTimeDisplayMenuOptions());
     textDisplay = new TextDisplay();
     animationDisplay = new AnimationDisplay();
     generalMenu = new Menu(giveGeneralMenuOptions());
+    realTimeClock = new RealTimeClock();
     _state = nameDisplay;
     numberDrawer5By3 = new NumberDrawer5By3();
 
-    setDefaultColor(5);
-    setDefaultBrightness(50);
+    setDefaultColor(4);
+    setDefaultBrightness(20);
 }
 
 void Display::update() {
@@ -474,6 +494,12 @@ List* Display::giveGeneralMenuOptions() {
     return options;
 }
 
+List* Display::giveTimeDisplayMenuOptions() {
+    List* options = new List();
+    options->add(new TimeDisplayHour());
+    return options;
+}
+
 void Display::changeState(DisplayState* s) {
     _state = s;
 }
@@ -501,7 +527,7 @@ void Display::setDefaultBrightness(int brightness) {
     matrix.setBrightness(defaultBrightness);
 };
 
-Display* display;
+Display* d;
 
 void DisplayState::update(Display*) {}
 void DisplayState::shortButtonPress(Display*) {}
@@ -571,24 +597,22 @@ void NameDisplay::rotationRight(Display* d) {
     changeState(d, d->timeDisplay);
 }
 
-TimeDisplay::TimeDisplay() {
-    realTimeClock = new RealTimeClock();
-}
+TimeDisplay::TimeDisplay() {}
 
-void TimeDisplay::update(Display* display) {
+void TimeDisplay::update(Display* d) {
     matrix.fillScreen(0);
-    DateTime now = realTimeClock->getTime();
+    DateTime now = d->realTimeClock->getTime();
     
-    display->drawNumbers5By3(addZeroToSingleDigit(String(now.hour())), 0, 0);
-    display->drawNumbers5By3(addZeroToSingleDigit(String(now.minute())), 9, 0);
-    display->drawNumbers5By3(addZeroToSingleDigit(String(now.second())), 9, 6);
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.hour())), 0, 0);
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.minute())), 9, 0);
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.second())), 9, 6);
 
-    display->drawNumbers5By3(addZeroToSingleDigit(String(now.day())), 0, 11);
-    matrix.drawPixel(7, 15, display->getDefaultColor()->getEncodedColor());
-    display->drawNumbers5By3(addZeroToSingleDigit(String(now.month())), 8, 11);
-    matrix.drawPixel(15, 15, display->getDefaultColor()->getEncodedColor());
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.day())), 0, 11);
+    matrix.drawPixel(7, 15, d->getDefaultColor()->getEncodedColor());
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.month())), 8, 11);
+    matrix.drawPixel(15, 15, d->getDefaultColor()->getEncodedColor());
 
-    matrix.drawCircle(3, 8, 2, display->getDefaultColor()->getEncodedColor());
+    matrix.drawCircle(3, 8, 2, d->getDefaultColor()->getEncodedColor());
     if (now.hour() > 12)
         hourToTwelve = now.hour() - 12;
     else
@@ -619,7 +643,7 @@ void TimeDisplay::update(Display* display) {
         y = 1;
     }
 
-    matrix.drawLine(3, 8, 3 + x, 8 - y, display->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(3, 8, 3 + x, 8 - y, d->getDefaultColor()->getEncodedColor());
     matrix.show();
 }
 
@@ -628,7 +652,10 @@ void TimeDisplay::shortButtonPress(Display* d) {
     changeState(d, d->generalMenu);
 }
 
-void TimeDisplay::longButtonPress(Display*) {}
+void TimeDisplay::longButtonPress(Display* d) {
+    d->timeDisplayMenu->setPreviousDisplayState(this);
+    changeState(d, d->timeDisplayMenu);
+}
 
 void TimeDisplay::rotationLeft(Display* d) {
     changeState(d, d->nameDisplay);
@@ -695,14 +722,14 @@ AnimationDisplay::AnimationDisplay() {
     hardCutOff = 0.2;
 }
 
-void AnimationDisplay::update(Display* display) {
+void AnimationDisplay::update(Display* d) {
     matrix.fillScreen(0);
     faktor = startFaktor;
     for (int i = 0; i < SIZE; i++) {
         if (faktor < hardCutOff)
             faktor = 1.0;
         if (faktor > softCutOff) {
-            matrix.drawLine(i, 0, i, SIZE, display->getDefaultColor()->getFaktoredEncodedColor(faktor));
+            matrix.drawLine(i, 0, i, SIZE, d->getDefaultColor()->getFaktoredEncodedColor(faktor));
         }
         else
             matrix.drawLine(i, 0, i, SIZE, 0);
@@ -752,7 +779,7 @@ DefaultBrightness::DefaultBrightness() {
 
 void DefaultBrightness::rotationLeft(Display* d) {
     int defaultBrightness = d->getDefaultBrightness();
-    if (defaultBrightness - 5 < 10)
+    if (defaultBrightness - 5 < 15)
         return;
     d->setDefaultBrightness(defaultBrightness - 5);
 }
@@ -771,6 +798,8 @@ String DefaultBrightness::getName(Display* d) {
 String DefaultBrightness::getValue(Display* d) {
     return String(d->getDefaultBrightness());
 }
+
+void DefaultBrightness::reset(Display*) {}
 
 DefaultColor::DefaultColor() {
     name = F("Farbe");
@@ -794,6 +823,36 @@ String DefaultColor::getName(Display* d) {
 
 String DefaultColor::getValue(Display* d) {
     return d->getDefaultColor()->name;
+}
+
+void DefaultColor::reset(Display*) {}
+
+TimeDisplayHour::TimeDisplayHour() {
+    name = "Hour";
+    increment = 0;
+}
+
+void TimeDisplayHour::rotationLeft(Display*) {
+    increment -= 1;
+}
+
+void TimeDisplayHour::rotationRight(Display*) {
+    increment += 1;
+}
+
+String TimeDisplayHour::getName(Display*) {
+    return name;
+}
+
+String TimeDisplayHour::getValue(Display* d) {
+    return String(d->realTimeClock->getTime().hour() + increment);
+}
+
+void TimeDisplayHour::reset(Display* d) {
+    DateTime now = d->realTimeClock->getTime();
+    DateTime newDateTime(now.year(), now.month(), now.day(), now.hour() + increment, now.minute(), now.second());
+    d->realTimeClock->setTime(newDateTime);
+    increment = 0;
 }
 
 Menu::Menu(List* options) {
@@ -841,6 +900,8 @@ void Menu::shortButtonPress(Display* d) {
 }
 
 void Menu::longButtonPress(Display* d) {
+    option = options->valueAt(optionsIndex);
+    option->reset(d);
     reset();
     changeState(d, previousDisplayState);
 }
@@ -852,6 +913,8 @@ void Menu::rotationLeft(Display* d) {
         xPosValue = 0;
     }
     else if (optionsIndex > 0) {
+        option = options->valueAt(optionsIndex);
+        option->reset(d);
         optionsIndex -= 1;
         xPosName = 0;
         xPosValue = 0;
@@ -886,7 +949,7 @@ RealTimeClock::RealTimeClock() {
     if (!rtc.begin()) {
         Serial.println("RTC nicht gefunden!");
     }
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 }
 
 void RealTimeClock::setTime(DateTime dateTime) {
@@ -975,27 +1038,27 @@ void setup() {
     colors[6] = new Color(F("pink"), 255, 80, 120);
     colors[7] = new Color(F("weiss"), 255, 255, 255);
 
-    display = new Display();
+    d = new Display();
 }
 
 void loop() {
     for (int i = 0; i < events->length(); i++) {
         event = events->valueAt(i);
         if (event->eventEnum == SHORTBUTTONPRESS) {
-            display->shortButtonPress();
+            d->shortButtonPress();
         }
         else if (event->eventEnum == LONGBUTTONPRESS) {
-            display->longButtonPress();
+            d->longButtonPress();
         }
         else if (event->eventEnum == ROTATIONLEFT) {
-            display->rotationLeft();
+            d->rotationLeft();
         }
         else if (event->eventEnum == ROTATIONRIGHT) {
-            display->rotationRight();
+            d->rotationRight();
         }
     }
     events->clear();
 
-    display->update();
+    d->update();
     delay(100);
 }
