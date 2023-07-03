@@ -383,37 +383,79 @@ public:
 
 class DefaultBrightness : public Option {
 public:
-    String name;
     DefaultBrightness();
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
     virtual String getName(Display*);
     virtual String getValue(Display*);
     virtual void reset(Display*);
+private:
+    String name;
 };
 
 class DefaultColor : public Option {
 public:
-    String name;
     DefaultColor();
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
     virtual String getName(Display*);
     virtual String getValue(Display*);
     virtual void reset(Display*);
+private:
+    String name;
 };
 
-class TimeDisplayHour : public Option {
+class TimeDisplayValue : public Option {
 public:
+    TimeDisplayValue();
+    void rotationLeft(Display*);
+    void rotationRight(Display*);
+    String getName(Display*);
+    String getValue(Display*);
+    void reset(Display*);
+    int giveIncrementedValue(int);
+    virtual DateTime giveNewDateTime(DateTime, int);
+    virtual int giveTimeValue(DateTime);
+protected:
     String name;
-    TimeDisplayHour();
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
-    virtual String getName(Display*);
-    virtual String getValue(Display*);
-    virtual void reset(Display*);
-private:
     int increment;
+    int maxValue;
+    int minValue;
+};
+
+class TimeDisplayHour : public TimeDisplayValue {
+public:
+    TimeDisplayHour();
+    DateTime giveNewDateTime(DateTime, int);
+    int giveTimeValue(DateTime);
+};
+
+class TimeDisplayMinute : public TimeDisplayValue {
+public:
+    TimeDisplayMinute();
+    DateTime giveNewDateTime(DateTime, int);
+    int giveTimeValue(DateTime);
+};
+
+class TimeDisplaySecond : public TimeDisplayValue {
+public:
+    TimeDisplaySecond();
+    DateTime giveNewDateTime(DateTime, int);
+    int giveTimeValue(DateTime);
+};
+
+class TimeDisplayDay : public TimeDisplayValue {
+public:
+    TimeDisplayDay();
+    DateTime giveNewDateTime(DateTime, int);
+    int giveTimeValue(DateTime);
+};
+
+class TimeDisplayMonth : public TimeDisplayValue {
+public:
+    TimeDisplayMonth();
+    DateTime giveNewDateTime(DateTime, int);
+    int giveTimeValue(DateTime);
 };
 
 class Menu : public DisplayState {
@@ -497,6 +539,10 @@ List* Display::giveGeneralMenuOptions() {
 List* Display::giveTimeDisplayMenuOptions() {
     List* options = new List();
     options->add(new TimeDisplayHour());
+    options->add(new TimeDisplayMinute());
+    options->add(new TimeDisplaySecond());
+    options->add(new TimeDisplayDay());
+    options->add(new TimeDisplayMonth());
     return options;
 }
 
@@ -827,32 +873,139 @@ String DefaultColor::getValue(Display* d) {
 
 void DefaultColor::reset(Display*) {}
 
-TimeDisplayHour::TimeDisplayHour() {
-    name = "Hour";
+TimeDisplayValue::TimeDisplayValue() {
+    name = "Value";
     increment = 0;
+    maxValue = 1;
+    minValue = 0;
 }
 
-void TimeDisplayHour::rotationLeft(Display*) {
+void TimeDisplayValue::rotationLeft(Display*) {
+    if (increment <= -maxValue + minValue)
+        return ;
     increment -= 1;
 }
 
-void TimeDisplayHour::rotationRight(Display*) {
+void TimeDisplayValue::rotationRight(Display*) {
+    if (increment >= maxValue - minValue)
+        return;
     increment += 1;
 }
 
-String TimeDisplayHour::getName(Display*) {
+String TimeDisplayValue::getName(Display*) {
     return name;
 }
 
-String TimeDisplayHour::getValue(Display* d) {
-    return String(d->realTimeClock->getTime().hour() + increment);
+String TimeDisplayValue::getValue(Display* d) {
+    DateTime now = d->realTimeClock->getTime();
+    return String(giveIncrementedValue(giveTimeValue(now)));
 }
 
-void TimeDisplayHour::reset(Display* d) {
+void TimeDisplayValue::reset(Display* d) {
+    if (increment == 0)
+        return;
     DateTime now = d->realTimeClock->getTime();
-    DateTime newDateTime(now.year(), now.month(), now.day(), now.hour() + increment, now.minute(), now.second());
+    DateTime newDateTime = giveNewDateTime(now, giveIncrementedValue(giveTimeValue(now)));
     d->realTimeClock->setTime(newDateTime);
     increment = 0;
+}
+
+int TimeDisplayValue::giveTimeValue(DateTime now) {
+    return 0;
+}
+
+int TimeDisplayValue::giveIncrementedValue(int current) {
+    int incrementedValue = current + increment;
+    if (incrementedValue > maxValue)
+        incrementedValue = minValue + (incrementedValue - maxValue);
+    else if (incrementedValue < minValue)
+        incrementedValue = maxValue + (incrementedValue - minValue + 1);
+    return incrementedValue;
+}
+
+DateTime TimeDisplayValue::giveNewDateTime(DateTime now, int incrementedValue) {
+    DateTime newDateTime(now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
+    return newDateTime;
+}
+
+TimeDisplayHour::TimeDisplayHour() {
+    name = "Stunde";
+    increment = 0;
+    maxValue = 23;
+    minValue = 0;
+}
+
+DateTime TimeDisplayHour::giveNewDateTime(DateTime now, int incrementedValue) {
+    DateTime newDateTime(now.year(), now.month(), now.day(), incrementedValue, now.minute(), now.second());
+    return newDateTime;
+}
+
+int TimeDisplayHour::giveTimeValue(DateTime now) {
+    return now.hour();
+}
+
+TimeDisplayMinute::TimeDisplayMinute() {
+    name = "Minute";
+    increment = 0;
+    maxValue = 59;
+    minValue = 0;
+}
+
+DateTime TimeDisplayMinute::giveNewDateTime(DateTime now, int incrementedValue) {
+    DateTime newDateTime(now.year(), now.month(), now.day(), now.hour(), incrementedValue, now.second());
+    return newDateTime;
+}
+
+int TimeDisplayMinute::giveTimeValue(DateTime now) {
+    return now.minute();
+}
+
+TimeDisplaySecond::TimeDisplaySecond() {
+    name = "Sekunde";
+    increment = 0;
+    maxValue = 59;
+    minValue = 0;
+}
+
+DateTime TimeDisplaySecond::giveNewDateTime(DateTime now, int incrementedValue) {
+    DateTime newDateTime(now.year(), now.month(), now.day(), now.hour(), now.minute(), incrementedValue);
+    return newDateTime;
+}
+
+int TimeDisplaySecond::giveTimeValue(DateTime now) {
+    return now.second();
+}
+
+TimeDisplayDay::TimeDisplayDay() {
+    name = "Tag";
+    increment = 0;
+    maxValue = 31;
+    minValue = 1;
+}
+
+DateTime TimeDisplayDay::giveNewDateTime(DateTime now, int incrementedValue) {
+    DateTime newDateTime(now.year(), now.month(), incrementedValue, now.hour(), now.minute(), now.second());
+    return newDateTime;
+}
+
+int TimeDisplayDay::giveTimeValue(DateTime now) {
+    return now.day();
+}
+
+TimeDisplayMonth::TimeDisplayMonth() {
+    name = "Monat";
+    increment = 0;
+    maxValue = 12;
+    minValue = 1;
+}
+
+DateTime TimeDisplayMonth::giveNewDateTime(DateTime now, int incrementedValue) {
+    DateTime newDateTime(now.year(), incrementedValue, now.month(), now.hour(), now.minute(), now.second());
+    return newDateTime;
+}
+
+int TimeDisplayMonth::giveTimeValue(DateTime now) {
+    return now.month();
 }
 
 Menu::Menu(List* options) {
