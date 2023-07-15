@@ -5,7 +5,16 @@
 #include <RTClib.h>
 
 
-//TODO: Specialized Menus
+//TODO: adjustable specialized brightness
+//TODO: adjustable specialized colors
+//TODO: More Colors for TimeDisplay
+//TODO: Night Dimming
+//TODO: textspeed
+//TODO: animationspeed
+//TODO: snake game
+//TODO: More Measurements => Modes
+//TODO: Real Time Clock Correction
+//TODO: maybe make an alarm
 
 
 const int MATRIXDATAPIN = 7;
@@ -374,21 +383,21 @@ private:
 
 class Option : public Element {
 public:
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
-    virtual String getName(Display*);
-    virtual String getValue(Display*);
-    virtual void reset(Display*);
+    virtual void rotationLeft(Display*, DisplayState*);
+    virtual void rotationRight(Display*, DisplayState*);
+    virtual String getName(Display*, DisplayState*);
+    virtual String getValue(Display*, DisplayState*);
+    virtual void reset(Display*, DisplayState*);
 };
 
 class DefaultBrightness : public Option {
 public:
     DefaultBrightness();
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
-    virtual String getName(Display*);
-    virtual String getValue(Display*);
-    virtual void reset(Display*);
+    virtual void rotationLeft(Display*, DisplayState*);
+    virtual void rotationRight(Display*, DisplayState*);
+    virtual String getName(Display*, DisplayState*);
+    virtual String getValue(Display*, DisplayState*);
+    virtual void reset(Display*, DisplayState*);
 private:
     String name;
 };
@@ -396,11 +405,11 @@ private:
 class DefaultColor : public Option {
 public:
     DefaultColor();
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
-    virtual String getName(Display*);
-    virtual String getValue(Display*);
-    virtual void reset(Display*);
+    virtual void rotationLeft(Display*, DisplayState*);
+    virtual void rotationRight(Display*, DisplayState*);
+    virtual String getName(Display*, DisplayState*);
+    virtual String getValue(Display*, DisplayState*);
+    virtual void reset(Display*, DisplayState*);
 private:
     String name;
 };
@@ -408,11 +417,11 @@ private:
 class TimeDisplayValue : public Option {
 public:
     TimeDisplayValue();
-    void rotationLeft(Display*);
-    void rotationRight(Display*);
-    String getName(Display*);
-    String getValue(Display*);
-    void reset(Display*);
+    void rotationLeft(Display*, DisplayState*);
+    void rotationRight(Display*, DisplayState*);
+    String getName(Display*, DisplayState*);
+    String getValue(Display*, DisplayState*);
+    void reset(Display*, DisplayState*);
     int giveIncrementedValue(int);
     virtual DateTime giveNewDateTime(DateTime, int);
     virtual int giveTimeValue(DateTime);
@@ -808,14 +817,14 @@ void AnimationDisplay::reset() {
     startFaktor = 1.0;
 }
 
-void Option::rotationLeft(Display*) {}
-void Option::rotationRight(Display*) {}
+void Option::rotationLeft(Display*, DisplayState*) {}
+void Option::rotationRight(Display*, DisplayState*) {}
 
-String Option::getName(Display*) {
+String Option::getName(Display*, DisplayState*) {
     return F("not implemented");
 }
 
-String Option::getValue(Display*) {
+String Option::getValue(Display*, DisplayState*) {
     return F("not implemented");
 }
 
@@ -823,55 +832,55 @@ DefaultBrightness::DefaultBrightness() {
     name = F("Helligkeit");
 }
 
-void DefaultBrightness::rotationLeft(Display* d) {
+void DefaultBrightness::rotationLeft(Display* d, DisplayState*) {
     int defaultBrightness = d->getDefaultBrightness();
     if (defaultBrightness - 5 < 15)
         return;
     d->setDefaultBrightness(defaultBrightness - 5);
 }
 
-void DefaultBrightness::rotationRight(Display* d) {
+void DefaultBrightness::rotationRight(Display* d, DisplayState*) {
     int defaultBrightness = d->getDefaultBrightness();
     if (defaultBrightness + 5 > 255)
         return;
     d->setDefaultBrightness(defaultBrightness + 5);
 }
 
-String DefaultBrightness::getName(Display* d) {
+String DefaultBrightness::getName(Display* d, DisplayState*) {
     return name;
 }
 
-String DefaultBrightness::getValue(Display* d) {
+String DefaultBrightness::getValue(Display* d, DisplayState*) {
     return String(d->getDefaultBrightness());
 }
 
-void DefaultBrightness::reset(Display*) {}
+void DefaultBrightness::reset(Display*, DisplayState*) {}
 
 DefaultColor::DefaultColor() {
     name = F("Farbe");
 }
 
-void DefaultColor::rotationLeft(Display* d) {
+void DefaultColor::rotationLeft(Display* d, DisplayState*) {
     int defaultColorIndex = d->getDefaultColorIndex();
     if (defaultColorIndex > 0)
         d->setDefaultColor(defaultColorIndex - 1);
 }
 
-void DefaultColor::rotationRight(Display* d) {
+void DefaultColor::rotationRight(Display* d, DisplayState*) {
     int defaultColorIndex = d->getDefaultColorIndex();
     if (defaultColorIndex < COLORS_AMOUNT - 1)
         d->setDefaultColor(defaultColorIndex + 1);
 }
 
-String DefaultColor::getName(Display* d) {
+String DefaultColor::getName(Display* d, DisplayState*) {
     return name;
 }
 
-String DefaultColor::getValue(Display* d) {
+String DefaultColor::getValue(Display* d, DisplayState*) {
     return d->getDefaultColor()->name;
 }
 
-void DefaultColor::reset(Display*) {}
+void DefaultColor::reset(Display*, DisplayState*) {}
 
 TimeDisplayValue::TimeDisplayValue() {
     name = "Value";
@@ -880,28 +889,28 @@ TimeDisplayValue::TimeDisplayValue() {
     minValue = 0;
 }
 
-void TimeDisplayValue::rotationLeft(Display*) {
+void TimeDisplayValue::rotationLeft(Display*, DisplayState*) {
     if (increment <= -maxValue + minValue)
         return ;
     increment -= 1;
 }
 
-void TimeDisplayValue::rotationRight(Display*) {
+void TimeDisplayValue::rotationRight(Display*, DisplayState*) {
     if (increment >= maxValue - minValue)
         return;
     increment += 1;
 }
 
-String TimeDisplayValue::getName(Display*) {
+String TimeDisplayValue::getName(Display*, DisplayState*) {
     return name;
 }
 
-String TimeDisplayValue::getValue(Display* d) {
+String TimeDisplayValue::getValue(Display* d, DisplayState*) {
     DateTime now = d->realTimeClock->getTime();
     return String(giveIncrementedValue(giveTimeValue(now)));
 }
 
-void TimeDisplayValue::reset(Display* d) {
+void TimeDisplayValue::reset(Display* d, DisplayState*) {
     if (increment == 0)
         return;
     DateTime now = d->realTimeClock->getTime();
@@ -1025,7 +1034,7 @@ void Menu::update(Display* d) {
 
     matrix.setCursor(xPosName + 5, 0);
     option = options->valueAt(optionsIndex);
-    String name = option->getName(d);
+    String name = option->getName(d, previousDisplayState);
     matrix.print(name);
     xPosName -= 1;
     if (xPosName < (name.length()) * -CHAR_WIDTH + 2) {
@@ -1035,7 +1044,7 @@ void Menu::update(Display* d) {
     matrix.setCursor(xPosValue + 5, 8);
 
     option = options->valueAt(optionsIndex);
-    String value = option->getValue(d);
+    String value = option->getValue(d, previousDisplayState);
     matrix.print(value);
     xPosValue -= 1;
     if (xPosValue < (value.length()) * -CHAR_WIDTH + 2) {
@@ -1054,7 +1063,7 @@ void Menu::shortButtonPress(Display* d) {
 
 void Menu::longButtonPress(Display* d) {
     option = options->valueAt(optionsIndex);
-    option->reset(d);
+    option->reset(d, previousDisplayState);
     reset();
     changeState(d, previousDisplayState);
 }
@@ -1062,12 +1071,12 @@ void Menu::longButtonPress(Display* d) {
 void Menu::rotationLeft(Display* d) {
     if (selected) {
         option = options->valueAt(optionsIndex);
-        option->rotationLeft(d);
+        option->rotationLeft(d, previousDisplayState);
         xPosValue = 0;
     }
     else if (optionsIndex > 0) {
         option = options->valueAt(optionsIndex);
-        option->reset(d);
+        option->reset(d, previousDisplayState);
         optionsIndex -= 1;
         xPosName = 0;
         xPosValue = 0;
@@ -1077,7 +1086,7 @@ void Menu::rotationLeft(Display* d) {
 void Menu::rotationRight(Display* d) {
     if (selected) {
         option = options->valueAt(optionsIndex);
-        option->rotationRight(d);
+        option->rotationRight(d, previousDisplayState);
         xPosValue = 0;
     }
     else if (optionsIndex < options->length() - 1) {
