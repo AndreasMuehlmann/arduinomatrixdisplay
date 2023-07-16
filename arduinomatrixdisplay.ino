@@ -5,16 +5,15 @@
 #include <RTClib.h>
 
 
-//TODO: adjustable specialized brightness
-//TODO: adjustable specialized colors
-//TODO: More Colors for TimeDisplay
+//TODO: how much free space there is
 //TODO: Night Dimming
 //TODO: textspeed
 //TODO: animationspeed
-//TODO: snake game
-//TODO: More Measurements => Modes
-//TODO: Real Time Clock Correction
-//TODO: maybe make an alarm
+//TODO: More Measurements
+
+//Maybe:
+//Real Time Clock Correction
+//Alarm
 
 
 const int MATRIXDATAPIN = 7;
@@ -285,7 +284,7 @@ public:
     void longButtonPress();
     void rotationRight();
     void rotationLeft();
-    void drawNumbers5By3(String numbers, int x, int y);
+    void drawNumbers5By3(String numbers, int x, int y, Color* color);
     Color* getDefaultColor();
     int getDefaultColorIndex();
     void setDefaultColor(int);
@@ -336,18 +335,23 @@ public:
 
 class TimeDisplay : public DisplayState {
 public:
-    TimeDisplay();
+    TimeDisplay(Display*);
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
     String addZeroToSingleDigit(String);
+    void setColorIndex(Display*, int, int);
+    int getColorIndex(int);
+    Color* getColor(int);
 private:
     RealTimeClock* realTimeClock;
     int x;
     int y;
     int hourToTwelve;
+    int timeDisplayColorIndecis[6];
+    Color* timeDisplayColors[6];
 };
 
 class TextDisplay : public DisplayState {
@@ -412,6 +416,19 @@ public:
     virtual void reset(Display*, DisplayState*);
 private:
     String name;
+};
+
+class TimeDisplayColor : public Option {
+public:
+    TimeDisplayColor(String, int);
+    virtual void rotationLeft(Display*, DisplayState*);
+    virtual void rotationRight(Display*, DisplayState*);
+    virtual String getName(Display*, DisplayState*);
+    virtual String getValue(Display*, DisplayState*);
+    virtual void reset(Display*, DisplayState*);
+private:
+    String name;
+    int index;
 };
 
 class TimeDisplayValue : public Option {
@@ -501,7 +518,7 @@ Display::Display() {
 
     turnedOffDisplay = new TurnedOffDisplay();
     nameDisplay = new NameDisplay();
-    timeDisplay = new TimeDisplay();
+    timeDisplay = new TimeDisplay(this);
     timeDisplayMenu = new Menu(giveTimeDisplayMenuOptions());
     textDisplay = new TextDisplay();
     animationDisplay = new AnimationDisplay();
@@ -534,8 +551,8 @@ void Display::rotationRight() {
     _state->rotationRight(this);
 }
 
-void Display::drawNumbers5By3(String numbers, int x, int y) {
-    numberDrawer5By3->drawNumbers5By3(numbers, x, y, defaultColor->getEncodedColor());
+void Display::drawNumbers5By3(String numbers, int x, int y, Color* color) {
+    numberDrawer5By3->drawNumbers5By3(numbers, x, y, color->getEncodedColor());
 }
 
 List* Display::giveGeneralMenuOptions() {
@@ -547,6 +564,12 @@ List* Display::giveGeneralMenuOptions() {
 
 List* Display::giveTimeDisplayMenuOptions() {
     List* options = new List();
+    options->add(new TimeDisplayColor(F("Stunde Farbe"), 0));
+    options->add(new TimeDisplayColor(F("Minute Farbe"), 1));
+    options->add(new TimeDisplayColor(F("Sekunde Farbe"), 2));
+    options->add(new TimeDisplayColor(F("Tag Farbe"), 3));
+    options->add(new TimeDisplayColor(F("Monat Farbe"), 4));
+    options->add(new TimeDisplayColor(F("Uhr Farbe"), 5));
     options->add(new TimeDisplayHour());
     options->add(new TimeDisplayMinute());
     options->add(new TimeDisplaySecond());
@@ -652,22 +675,46 @@ void NameDisplay::rotationRight(Display* d) {
     changeState(d, d->timeDisplay);
 }
 
-TimeDisplay::TimeDisplay() {}
+TimeDisplay::TimeDisplay(Display* d) {
+    for (int i = 0; i < 6; i++) {
+        setColorIndex(d, -1, i);
+    }
+}
+
+void TimeDisplay::setColorIndex(Display* d, int colorIndex, int index) {
+    timeDisplayColorIndecis[index] = colorIndex;
+    if (colorIndex >= 0) {
+        timeDisplayColors[index] = colors[colorIndex];
+    } else {
+        timeDisplayColors[index] = d->getDefaultColor();
+    }
+}
+
+int TimeDisplay::getColorIndex(int index) {
+    return timeDisplayColorIndecis[index];
+}
+
+Color* TimeDisplay::getColor(int index) {
+    return timeDisplayColors[index];
+}
 
 void TimeDisplay::update(Display* d) {
+    for (int i = 0; i < 6; i++) {
+        setColorIndex(d, getColorIndex(i), i);
+    }
     matrix.fillScreen(0);
     DateTime now = d->realTimeClock->getTime();
     
-    d->drawNumbers5By3(addZeroToSingleDigit(String(now.hour())), 0, 0);
-    d->drawNumbers5By3(addZeroToSingleDigit(String(now.minute())), 9, 0);
-    d->drawNumbers5By3(addZeroToSingleDigit(String(now.second())), 9, 6);
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.hour())), 0, 0, timeDisplayColors[0]);
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.minute())), 9, 0, timeDisplayColors[1]);
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.second())), 9, 6, timeDisplayColors[2]);
 
-    d->drawNumbers5By3(addZeroToSingleDigit(String(now.day())), 0, 11);
-    matrix.drawPixel(7, 15, d->getDefaultColor()->getEncodedColor());
-    d->drawNumbers5By3(addZeroToSingleDigit(String(now.month())), 8, 11);
-    matrix.drawPixel(15, 15, d->getDefaultColor()->getEncodedColor());
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.day())), 0, 11, timeDisplayColors[3]);
+    matrix.drawPixel(7, 15, timeDisplayColors[3]->getEncodedColor());
+    d->drawNumbers5By3(addZeroToSingleDigit(String(now.month())), 8, 11, timeDisplayColors[4]);
+    matrix.drawPixel(15, 15, timeDisplayColors[4]->getEncodedColor());
 
-    matrix.drawCircle(3, 8, 2, d->getDefaultColor()->getEncodedColor());
+    matrix.drawCircle(3, 8, 2, timeDisplayColors[5]->getEncodedColor());
     if (now.hour() > 12)
         hourToTwelve = now.hour() - 12;
     else
@@ -698,7 +745,7 @@ void TimeDisplay::update(Display* d) {
         y = 1;
     }
 
-    matrix.drawLine(3, 8, 3 + x, 8 - y, d->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(3, 8, 3 + x, 8 - y, timeDisplayColors[5]->getEncodedColor());
     matrix.show();
 }
 
@@ -882,6 +929,35 @@ String DefaultColor::getValue(Display* d, DisplayState*) {
 
 void DefaultColor::reset(Display*, DisplayState*) {}
 
+TimeDisplayColor::TimeDisplayColor(String name, int index) {
+    this->name = name;
+    this->index = index;
+}
+
+void TimeDisplayColor::rotationLeft(Display* d, DisplayState*) {
+    int colorIndex = d->timeDisplay->getColorIndex(index);
+    if (colorIndex >= 0)
+        d->timeDisplay->setColorIndex(d, colorIndex - 1, index);
+}
+
+void TimeDisplayColor::rotationRight(Display* d, DisplayState*) {
+    int colorIndex = d->timeDisplay->getColorIndex(index);
+    if (colorIndex < COLORS_AMOUNT - 1)
+        d->timeDisplay->setColorIndex(d, colorIndex + 1, index);
+}
+
+String TimeDisplayColor::getName(Display* d, DisplayState*) {
+    return name;
+}
+
+String TimeDisplayColor::getValue(Display* d, DisplayState*) {
+    if (d->timeDisplay->getColorIndex(index) == -1)
+        return "Standard";
+    return d->timeDisplay->getColor(index)->name;
+}
+
+void TimeDisplayColor::reset(Display*, DisplayState*) {}
+
 TimeDisplayValue::TimeDisplayValue() {
     name = "Value";
     increment = 0;
@@ -1051,7 +1127,6 @@ void Menu::update(Display* d) {
         xPosValue = 0;
     }
     matrix.show();
-    delay(200);
 }
 
 void Menu::shortButtonPress(Display* d) {
@@ -1109,7 +1184,7 @@ void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
 RealTimeClock::RealTimeClock() {
     Wire.begin();
     if (!rtc.begin()) {
-        Serial.println("RTC nicht gefunden!");
+        // Serial.println("RTC nicht gefunden!");
     }
     //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 }
@@ -1177,8 +1252,6 @@ void dt_interrupt() {
 }
 
 void setup() {
-    Serial.begin(9600);
-
     firstRotationState = TIMEOUT;
     lastRotationState = TIMEOUT;
     lastTimeRotationInterrupt = 0;
