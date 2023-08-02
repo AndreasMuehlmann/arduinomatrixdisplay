@@ -605,7 +605,6 @@ void Display::displayStateUp() {
     if (displayStateIndex > AMOUNT_DISPLAY_STATES - 1)
         displayStateIndex = 0;
     _state = displayStates[displayStateIndex];
-    Serial.println("up");
 };
 
 void Display::displayStateDown() {
@@ -613,7 +612,6 @@ void Display::displayStateDown() {
     if (displayStateIndex < 0)
         displayStateIndex = AMOUNT_DISPLAY_STATES - 1;
     _state = displayStates[displayStateIndex];
-    Serial.println("down");
 };
 
 Display* d;
@@ -1275,19 +1273,15 @@ void loop() {
         event = events->valueAt(i);
         if (event->eventEnum == SHORTBUTTONPRESS) {
             d->shortButtonPress();
-            Serial.println("sbp");
         }
         else if (event->eventEnum == LONGBUTTONPRESS) {
             d->longButtonPress();
-            Serial.println("lbp");
         }
         else if (event->eventEnum == ROTATIONLEFT) {
             d->rotationLeft();
-            Serial.println("rl");
         }
         else if (event->eventEnum == ROTATIONRIGHT) {
             d->rotationRight();
-            Serial.println("rr");
         }
     }
     events->clear();
