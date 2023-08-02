@@ -21,6 +21,7 @@ const int SIZE = 16;
 const int CHAR_WIDTH = 6;
 const int MAX_OPTIONS = 10;
 const int COLORS_AMOUNT = 8;
+const int AMOUNT_DISPLAY_STATES = 5;
 
 const int CLK_PIN = 2;
 const int DT_PIN = 3;
@@ -290,6 +291,8 @@ public:
     void setDefaultColor(int);
     int getDefaultBrightness();
     void setDefaultBrightness(int);
+    void displayStateUp();
+    void displayStateDown();
 private:
     friend class DisplayState;
     void changeState(DisplayState*);
@@ -297,6 +300,8 @@ private:
     List* giveTimeDisplayMenuOptions();
 private:
     DisplayState* _state;
+    int displayStateIndex;
+    DisplayState* displayStates[AMOUNT_DISPLAY_STATES];
     NumberDrawer5By3* numberDrawer5By3;
     int defaultColorIndex;
     Color* defaultColor;
@@ -308,8 +313,8 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
+    void rotationLeft(Display*);
+    void rotationRight(Display*);
 protected:
     void changeState(Display*, DisplayState*);
 };
@@ -319,8 +324,6 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
 };
 
 class NameDisplay : public DisplayState {
@@ -329,8 +332,6 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
 };
 
 class TimeDisplay : public DisplayState {
@@ -339,8 +340,6 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
     String addZeroToSingleDigit(String);
     void setColorIndex(Display*, int, int);
     int getColorIndex(int);
@@ -360,8 +359,8 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
+    void rotationLeft(Display*);
+    void rotationRight(Display*);
     void reset();
 private:
     int tickCount;
@@ -375,8 +374,8 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
+    void rotationLeft(Display*);
+    void rotationRight(Display*);
     void reset();
 private:
     double startFaktor;
@@ -516,12 +515,13 @@ Display::Display() {
     matrix.begin();
     matrix.setTextSize(1);
 
-    turnedOffDisplay = new TurnedOffDisplay();
-    nameDisplay = new NameDisplay();
-    timeDisplay = new TimeDisplay(this);
-    timeDisplayMenu = new Menu(giveTimeDisplayMenuOptions());
-    textDisplay = new TextDisplay();
-    animationDisplay = new AnimationDisplay();
+    displayStateIndex = 0;
+    displayStates[0] = new TurnedOffDisplay();
+    displayStates[1] = new NameDisplay();
+    displayStates[2] = new TimeDisplay(this);
+    displayStates[3] = new Menu(giveTimeDisplayMenuOptions());
+    displayStates[4] = new TextDisplay();
+    displayStates[5] = new AnimationDisplay();
     generalMenu = new Menu(giveGeneralMenuOptions());
     realTimeClock = new RealTimeClock();
     _state = nameDisplay;
@@ -530,7 +530,6 @@ Display::Display() {
     setDefaultColor(4);
     setDefaultBrightness(20);
 }
-
 void Display::update() {
     _state->update(this);
 }
@@ -605,13 +604,35 @@ void Display::setDefaultBrightness(int brightness) {
     matrix.setBrightness(defaultBrightness);
 };
 
+void Display::displayStateUp() {
+    displayStateIndex += 1;
+    if (displayStateIndex > AMOUNT_DISPLAY_STATES - 1)
+        displayStateIndex = 0;
+    _state = displayStates[displayStateIndex];
+    Serial.println("up");
+};
+
+void Display::displayStateDown() {
+    displayStateIndex -= 1;
+    if (displayStateIndex < 0)
+        displayStateIndex = AMOUNT_DISPLAY_STATES - 1;
+    _state = displayStates[displayStateIndex];
+    Serial.println("down");
+};
+
 Display* d;
 
 void DisplayState::update(Display*) {}
 void DisplayState::shortButtonPress(Display*) {}
 void DisplayState::longButtonPress(Display*) {}
-void DisplayState::rotationLeft(Display*) {}
-void DisplayState::rotationRight(Display*) {}
+
+void DisplayState::rotationLeft(Display*) {
+    d->displayStateDown(); 
+}
+
+void DisplayState::rotationRight(Display* d) {
+    d->displayStateUp(); 
+}
 
 void DisplayState::changeState(Display* d, DisplayState* s) {
     d->changeState(s);
@@ -628,14 +649,6 @@ void TurnedOffDisplay::shortButtonPress(Display* d) {
 }
 
 void TurnedOffDisplay::longButtonPress(Display* d) {}
-
-void TurnedOffDisplay::rotationLeft(Display* d) {
-    changeState(d, d->animationDisplay);
-}
-
-void TurnedOffDisplay::rotationRight(Display* d) {
-    changeState(d, d->nameDisplay);
-}
 
 NameDisplay::NameDisplay() {}
 
@@ -667,13 +680,6 @@ void NameDisplay::shortButtonPress(Display* d) {
 }
 
 void NameDisplay::longButtonPress(Display*) {}
-
-void NameDisplay::rotationLeft(Display* d) {
-    changeState(d, d->turnedOffDisplay);
-}
-void NameDisplay::rotationRight(Display* d) {
-    changeState(d, d->timeDisplay);
-}
 
 TimeDisplay::TimeDisplay(Display* d) {
     for (int i = 0; i < 6; i++) {
@@ -759,14 +765,6 @@ void TimeDisplay::longButtonPress(Display* d) {
     changeState(d, d->timeDisplayMenu);
 }
 
-void TimeDisplay::rotationLeft(Display* d) {
-    changeState(d, d->nameDisplay);
-}
-
-void TimeDisplay::rotationRight(Display* d) {
-    changeState(d, d->textDisplay);
-}
-
 String TimeDisplay::addZeroToSingleDigit(String number) {
     if (number.length() == 1) {
         return "0" + number;
@@ -805,12 +803,12 @@ void TextDisplay::shortButtonPress(Display* d) {
 void TextDisplay::longButtonPress(Display*) {}
 
 void TextDisplay::rotationLeft(Display* d) {
-    changeState(d, d->timeDisplay);
+    d->displayStateDown();
     reset();
 }
 
 void TextDisplay::rotationRight(Display* d) {
-    changeState(d, d->animationDisplay);
+    d->displayStateUp();
     reset();
 }
 
@@ -851,12 +849,12 @@ void AnimationDisplay::shortButtonPress(Display* d) {
 void AnimationDisplay::longButtonPress(Display*) {}
 
 void AnimationDisplay::rotationLeft(Display* d) {
-    changeState(d, d->textDisplay);
+    d->displayStateDown();
     reset();
 }
 
 void AnimationDisplay::rotationRight(Display* d) {
-    changeState(d, d->turnedOffDisplay);
+    d->displayStateUp();
     reset();
 }
 
@@ -1281,15 +1279,19 @@ void loop() {
         event = events->valueAt(i);
         if (event->eventEnum == SHORTBUTTONPRESS) {
             d->shortButtonPress();
+            Serial.println("sbp");
         }
         else if (event->eventEnum == LONGBUTTONPRESS) {
             d->longButtonPress();
+            Serial.println("lbp");
         }
         else if (event->eventEnum == ROTATIONLEFT) {
             d->rotationLeft();
+            Serial.println("rl");
         }
         else if (event->eventEnum == ROTATIONRIGHT) {
             d->rotationRight();
+            Serial.println("rr");
         }
     }
     events->clear();
