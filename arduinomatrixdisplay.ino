@@ -257,7 +257,6 @@ void NumberDrawer5By3::drawNine(int x, int y, uint16_t color) {
     matrix.drawLine(x, y + 4, x + 2, y + 4, color);
     matrix.drawLine(x + 2, y, x + 2, y + 4, color);
     matrix.drawPixel(x, y + 1, color);
-
 }
 
 class DisplayState;
@@ -271,14 +270,10 @@ class RealTimeClock;
 
 class Display {
 public:
-    TurnedOffDisplay* turnedOffDisplay;
-    NameDisplay* nameDisplay;
-    TimeDisplay* timeDisplay;
-    TextDisplay* textDisplay;
-    AnimationDisplay* animationDisplay;
     Menu* generalMenu;
     Menu* timeDisplayMenu;
     RealTimeClock* realTimeClock;
+    TimeDisplay* timeDisplay;
     Display();
     void update();
     void shortButtonPress();
@@ -515,16 +510,17 @@ Display::Display() {
     matrix.begin();
     matrix.setTextSize(1);
 
+    timeDisplay = new TimeDisplay(this);
+    timeDisplayMenu = new Menu(giveTimeDisplayMenuOptions());
     displayStateIndex = 0;
-    displayStates[0] = new TurnedOffDisplay();
-    displayStates[1] = new NameDisplay();
-    displayStates[2] = new TimeDisplay(this);
-    displayStates[3] = new Menu(giveTimeDisplayMenuOptions());
-    displayStates[4] = new TextDisplay();
-    displayStates[5] = new AnimationDisplay();
+    displayStates[0] = new NameDisplay();
+    displayStates[1] = timeDisplay;
+    displayStates[2] = new TextDisplay();
+    displayStates[3] = new AnimationDisplay();
+    displayStates[4] = new TurnedOffDisplay();
     generalMenu = new Menu(giveGeneralMenuOptions());
     realTimeClock = new RealTimeClock();
-    _state = nameDisplay;
+    _state = displayStates[displayStateIndex];
     numberDrawer5By3 = new NumberDrawer5By3();
 
     setDefaultColor(4);
