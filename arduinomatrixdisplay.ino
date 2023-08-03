@@ -5,15 +5,10 @@
 #include <RTClib.h>
 
 
-//TODO: how much free space there is
 //TODO: Night Dimming
 //TODO: textspeed
 //TODO: animationspeed
 //TODO: More Measurements
-
-//Maybe:
-//Real Time Clock Correction
-//Alarm
 
 
 const int MATRIXDATAPIN = 7;
@@ -308,8 +303,8 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
-    void rotationLeft(Display*);
-    void rotationRight(Display*);
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
 protected:
     void changeState(Display*, DisplayState*);
 };
@@ -484,8 +479,8 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
-    virtual void rotationLeft(Display*);
-    virtual void rotationRight(Display*);
+    void rotationLeft(Display*);
+    void rotationRight(Display*);
     void setPreviousDisplayState(DisplayState*);
     void reset();
 private:
