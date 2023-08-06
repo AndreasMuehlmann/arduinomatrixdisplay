@@ -281,6 +281,7 @@ public:
     void setDefaultColor(int);
     int getDefaultBrightness();
     void setDefaultBrightness(int);
+    void setDisplayState(int);
     void displayStateUp();
     void displayStateDown();
 private:
@@ -296,6 +297,10 @@ private:
     int defaultColorIndex;
     Color* defaultColor;
     int defaultBrightness;
+    int turnOffHour;
+    int turnOnHour;
+    bool turnOffAtNight;
+    int savedDisplayStateIndex;
 };
 
 class DisplayState {
@@ -519,9 +524,24 @@ Display::Display() {
     numberDrawer5By3 = new NumberDrawer5By3();
 
     setDefaultColor(4);
-    setDefaultBrightness(20);
+    setDefaultBrightness(10);
+
+    turnOffHour = 21;
+    turnOnHour = 10;
+    turnOffAtNight = true;
+    savedDisplayStateIndex = -1;
 }
+
 void Display::update() {
+    DateTime now = realTimeClock->getTime();
+    if (now.hour() == turnOffHour && now.minute() == 0  && now.second() < 10 && turnOffAtNight) {
+        if (displayStateIndex != AMOUNT_DISPLAY_STATES - 1)
+            savedDisplayStateIndex = displayStateIndex;
+        setDisplayState(AMOUNT_DISPLAY_STATES - 1);
+    } else if (now.hour() == turnOnHour && now.minute() == 0 && now.second() < 10 && savedDisplayStateIndex != -1) {
+        setDisplayState(savedDisplayStateIndex);
+        savedDisplayStateIndex = -1;
+    }
     _state->update(this);
 }
 
@@ -594,6 +614,12 @@ void Display::setDefaultBrightness(int brightness) {
     defaultBrightness = brightness;
     matrix.setBrightness(defaultBrightness);
 };
+
+
+void Display::setDisplayState(int index) {
+    displayStateIndex = index;
+    _state = displayStates[displayStateIndex];
+}
 
 void Display::displayStateUp() {
     displayStateIndex += 1;
@@ -868,16 +894,16 @@ DefaultBrightness::DefaultBrightness() {
 
 void DefaultBrightness::rotationLeft(Display* d, DisplayState*) {
     int defaultBrightness = d->getDefaultBrightness();
-    if (defaultBrightness - 5 < 15)
+    if (defaultBrightness - 2 < 1)
         return;
-    d->setDefaultBrightness(defaultBrightness - 5);
+    d->setDefaultBrightness(defaultBrightness - 2);
 }
 
 void DefaultBrightness::rotationRight(Display* d, DisplayState*) {
     int defaultBrightness = d->getDefaultBrightness();
-    if (defaultBrightness + 5 > 255)
+    if (defaultBrightness + 2 > 255)
         return;
-    d->setDefaultBrightness(defaultBrightness + 5);
+    d->setDefaultBrightness(defaultBrightness + 2);
 }
 
 String DefaultBrightness::getName(Display* d, DisplayState*) {
@@ -1092,7 +1118,7 @@ void Menu::update(Display* d) {
     matrix.setTextWrap(false);
     matrix.fillScreen(0);
     if (selected) {
-        matrix.fillRect(0, 0, 16, 8, d->getDefaultColor()->getFaktoredEncodedColor(0.3));
+        matrix.fillRect(0, 0, 16, 8, d->getDefaultColor()->getFaktoredEncodedColor(0.5));
     }
 
     matrix.setCursor(xPosName + 5, 0);
@@ -1152,6 +1178,8 @@ void Menu::rotationRight(Display* d) {
         xPosValue = 0;
     }
     else if (optionsIndex < options->length() - 1) {
+        option = options->valueAt(optionsIndex);
+        option->reset(d, previousDisplayState);
         optionsIndex += 1;
         xPosName = 0;
         xPosValue = 0;
