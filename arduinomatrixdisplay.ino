@@ -5,9 +5,8 @@
 #include <RTClib.h>
 
 
-//TODO: Night Dimming
-//TODO: textspeed
-//TODO: animationspeed
+//TODO: personalized NameDisplays
+//TODO: personalized Texts
 
 
 const int MATRIXDATAPIN = 7;
@@ -282,6 +281,10 @@ public:
     void setDefaultColor(int);
     int getDefaultBrightness();
     void setDefaultBrightness(int);
+    int getTurnOffHour();
+    void setTurnOffHour(int);
+    int getTurnOnHour();
+    void setTurnOnHour(int);
     void setDisplayState(int);
     void displayStateUp();
     void displayStateDown();
@@ -301,7 +304,6 @@ private:
     int defaultBrightness;
     int turnOffHour;
     int turnOnHour;
-    bool turnOffAtNight;
     int savedDisplayStateIndex;
 };
 
@@ -408,6 +410,30 @@ private:
 class DefaultColor : public Option {
 public:
     DefaultColor();
+    virtual void rotationLeft(Display*, DisplayState*);
+    virtual void rotationRight(Display*, DisplayState*);
+    virtual String getName(Display*, DisplayState*);
+    virtual String getValue(Display*, DisplayState*);
+    virtual void reset(Display*, DisplayState*);
+private:
+    String name;
+};
+
+class TurnOffHour : public Option {
+public:
+    TurnOffHour();
+    virtual void rotationLeft(Display*, DisplayState*);
+    virtual void rotationRight(Display*, DisplayState*);
+    virtual String getName(Display*, DisplayState*);
+    virtual String getValue(Display*, DisplayState*);
+    virtual void reset(Display*, DisplayState*);
+private:
+    String name;
+};
+
+class TurnOnHour : public Option {
+public:
+    TurnOnHour();
     virtual void rotationLeft(Display*, DisplayState*);
     virtual void rotationRight(Display*, DisplayState*);
     virtual String getName(Display*, DisplayState*);
@@ -547,13 +573,12 @@ Display::Display() {
 
     turnOffHour = 21;
     turnOnHour = 10;
-    turnOffAtNight = true;
     savedDisplayStateIndex = -1;
 }
 
 void Display::update() {
     DateTime now = realTimeClock->getTime();
-    if (now.hour() == turnOffHour && now.minute() == 0  && now.second() < 10 && turnOffAtNight) {
+    if (now.hour() == turnOffHour && now.minute() == 0  && now.second() < 10) {
         if (displayStateIndex != AMOUNT_DISPLAY_STATES - 1)
             savedDisplayStateIndex = displayStateIndex;
         setDisplayState(AMOUNT_DISPLAY_STATES - 1);
@@ -589,6 +614,8 @@ List* Display::giveGeneralMenuOptions() {
     List* options = new List();
     options->add(new DefaultBrightness());
     options->add(new DefaultColor());
+    options->add(new TurnOffHour());
+    options->add(new TurnOnHour());
     return options;
 }
 
@@ -641,11 +668,26 @@ void Display::setDefaultBrightness(int brightness) {
     matrix.setBrightness(defaultBrightness);
 };
 
+int Display::getTurnOffHour() {
+    return turnOffHour; 
+};
+
+void Display::setTurnOffHour(int turnOffHour) {
+    this->turnOffHour = turnOffHour; 
+};
+
+int Display::getTurnOnHour() {
+    return turnOnHour; 
+};
+
+void Display::setTurnOnHour(int turnOnHour) {
+    this->turnOnHour = turnOnHour; 
+};
 
 void Display::setDisplayState(int index) {
     displayStateIndex = index;
     _state = displayStates[displayStateIndex];
-}
+};
 
 void Display::displayStateUp() {
     displayStateIndex += 1;
@@ -932,16 +974,16 @@ DefaultBrightness::DefaultBrightness() {
 
 void DefaultBrightness::rotationLeft(Display* d, DisplayState*) {
     int defaultBrightness = d->getDefaultBrightness();
-    if (defaultBrightness - 2 < 1)
+    if (defaultBrightness - 1 < 1)
         return;
-    d->setDefaultBrightness(defaultBrightness - 2);
+    d->setDefaultBrightness(defaultBrightness - 1);
 }
 
 void DefaultBrightness::rotationRight(Display* d, DisplayState*) {
     int defaultBrightness = d->getDefaultBrightness();
-    if (defaultBrightness + 2 > 255)
+    if (defaultBrightness + 1 > 255)
         return;
-    d->setDefaultBrightness(defaultBrightness + 2);
+    d->setDefaultBrightness(defaultBrightness + 1);
 }
 
 String DefaultBrightness::getName(Display* d, DisplayState*) {
@@ -979,6 +1021,63 @@ String DefaultColor::getValue(Display* d, DisplayState*) {
 }
 
 void DefaultColor::reset(Display*, DisplayState*) {}
+
+
+TurnOffHour::TurnOffHour() {
+    name = F("Abschaltzeit");
+}
+
+void TurnOffHour::rotationLeft(Display* d, DisplayState*) {
+    int turnOffHour = d->getTurnOffHour();
+    if (turnOffHour - 1 < -1)
+        return;
+    d->setTurnOffHour(turnOffHour - 1);
+}
+
+void TurnOffHour::rotationRight(Display* d, DisplayState*) {
+    int turnOffHour = d->getTurnOffHour();
+    if (turnOffHour + 1 > 24)
+        return;
+    d->setTurnOffHour(turnOffHour + 1);
+}
+
+String TurnOffHour::getName(Display* d, DisplayState*) {
+    return name;
+}
+
+String TurnOffHour::getValue(Display* d, DisplayState*) {
+    return String(d->getTurnOffHour());
+}
+
+void TurnOffHour::reset(Display*, DisplayState*) {}
+
+TurnOnHour::TurnOnHour() {
+    name = F("Anschaltzeit");
+}
+
+void TurnOnHour::rotationLeft(Display* d, DisplayState*) {
+    int turnOnHour = d->getTurnOnHour();
+    if (turnOnHour - 1 < -1)
+        return;
+    d->setTurnOnHour(turnOnHour - 1);
+}
+
+void TurnOnHour::rotationRight(Display* d, DisplayState*) {
+    int turnOnHour = d->getTurnOnHour();
+    if (turnOnHour + 1 > 24)
+        return;
+    d->setTurnOnHour(turnOnHour + 1);
+}
+
+String TurnOnHour::getName(Display* d, DisplayState*) {
+    return name;
+}
+
+String TurnOnHour::getValue(Display* d, DisplayState*) {
+    return String(d->getTurnOnHour());
+}
+
+void TurnOnHour::reset(Display*, DisplayState*) {}
 
 TimeDisplayColor::TimeDisplayColor(String name, int index) {
     this->name = name;
