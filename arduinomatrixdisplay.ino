@@ -862,7 +862,30 @@ void LuisaNameDisplay::update(Display*) {
     matrix.setTextWrap(false);
     matrix.fillScreen(0);
     matrix.setCursor(0, 0);
-    matrix.print("Luisa");
+    matrix.print("L");
+    matrix.setCursor(2, -2);
+    matrix.print("u");
+    matrix.setCursor(6, 3);
+    matrix.print("i");
+    matrix.setCursor(10, 4);
+    matrix.print("s");
+    matrix.setCursor(11, 9);
+    matrix.print("a");
+
+    matrix.drawLine(2, 13, 5, 10, d->getDefaultColor()->getEncodedColor());
+    matrix.fillRect(4, 11, 2, 2, d->getDefaultColor()->getEncodedColor());
+    matrix.fillRect(5, 12, 2, 2, d->getDefaultColor()->getEncodedColor());
+    matrix.drawPixel(6, 14, d->getDefaultColor()->getEncodedColor());
+    matrix.fillRect(3, 10, 2, 2, d->getDefaultColor()->getEncodedColor());
+    matrix.fillRect(2, 9, 2, 2, d->getDefaultColor()->getEncodedColor());
+    matrix.drawPixel(1, 9, d->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(2, 12, 3, 13, d->getDefaultColor()->getEncodedColor());
+
+    matrix.drawLine(12, 5, 12, 1, d->getDefaultColor()->getEncodedColor());
+    matrix.fillRect(10, 0, 2, 2, d->getDefaultColor()->getEncodedColor());
+    matrix.fillRect(10, 3, 2, 2, d->getDefaultColor()->getEncodedColor());
+    matrix.fillRect(13, 1, 2, 2, d->getDefaultColor()->getEncodedColor());
+
     matrix.show();
 }
 
@@ -1600,7 +1623,7 @@ void setup() {
     colors[3] = new Color(F("gruen"), 0, 255, 0);
     colors[4] = new Color(F("blau"), 0, 0, 255);
     colors[5] = new Color(F("lila"), 255, 0, 255);
-    colors[6] = new Color(F("pink"), 255, 0, 125);
+    colors[6] = new Color(F("pink"), 255, 0, 160);
     colors[7] = new Color(F("weiss"), 255, 255, 255);
 
     d = new Display();
