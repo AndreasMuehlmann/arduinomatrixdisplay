@@ -8,7 +8,6 @@
 //TODO: Night Dimming
 //TODO: textspeed
 //TODO: animationspeed
-//TODO: More Measurements
 
 
 const int MATRIXDATAPIN = 7;
@@ -266,9 +265,11 @@ class RealTimeClock;
 class Display {
 public:
     Menu* generalMenu;
-    Menu* timeDisplayMenu;
-    RealTimeClock* realTimeClock;
     TimeDisplay* timeDisplay;
+    Menu* timeDisplayMenu;
+    TextDisplay* textDisplay;
+    Menu* textDisplayMenu;
+    RealTimeClock* realTimeClock;
     Display();
     void update();
     void shortButtonPress();
@@ -289,6 +290,7 @@ private:
     void changeState(DisplayState*);
     List* giveGeneralMenuOptions();
     List* giveTimeDisplayMenuOptions();
+    List* giveTextDisplayMenuOptions();
 private:
     DisplayState* _state;
     int displayStateIndex;
@@ -357,7 +359,10 @@ public:
     void rotationLeft(Display*);
     void rotationRight(Display*);
     void reset();
+    void setTextSpeed(int);
+    int getTextSpeed();
 private:
+    int textSpeed;
     int tickCount;
     int xPos;
     String text;
@@ -478,6 +483,18 @@ public:
     int giveTimeValue(DateTime);
 };
 
+class TextSpeed : public Option {
+public:
+    TextSpeed();
+    virtual void rotationLeft(Display*, DisplayState*);
+    virtual void rotationRight(Display*, DisplayState*);
+    virtual String getName(Display*, DisplayState*);
+    virtual String getValue(Display*, DisplayState*);
+    virtual void reset(Display*, DisplayState*);
+private:
+    String name;
+};
+
 class Menu : public DisplayState {
 public:
     Menu(List* options);
@@ -512,10 +529,12 @@ Display::Display() {
 
     timeDisplay = new TimeDisplay(this);
     timeDisplayMenu = new Menu(giveTimeDisplayMenuOptions());
+    textDisplay = new TextDisplay();
+    textDisplayMenu = new Menu(giveTextDisplayMenuOptions());
     displayStateIndex = 0;
     displayStates[0] = new NameDisplay();
     displayStates[1] = timeDisplay;
-    displayStates[2] = new TextDisplay();
+    displayStates[2] = textDisplay;
     displayStates[3] = new AnimationDisplay();
     displayStates[4] = new TurnedOffDisplay();
     generalMenu = new Menu(giveGeneralMenuOptions());
@@ -543,6 +562,7 @@ void Display::update() {
         savedDisplayStateIndex = -1;
     }
     _state->update(this);
+    delay(100);
 }
 
 void Display::shortButtonPress() {
@@ -585,6 +605,12 @@ List* Display::giveTimeDisplayMenuOptions() {
     options->add(new TimeDisplaySecond());
     options->add(new TimeDisplayDay());
     options->add(new TimeDisplayMonth());
+    return options;
+}
+
+List* Display::giveTextDisplayMenuOptions() {
+    List* options = new List();
+    options->add(new TextSpeed());
     return options;
 }
 
@@ -791,11 +817,12 @@ TextDisplay::TextDisplay() {
     xPos = 0;
     text = F(" Danke fuer Ihren Kauf bei Andi Start-Ups. Beehren Sie uns bald wieder <3.");
     tickCount = 0;
+    textSpeed = 3;
 }
 
 void TextDisplay::update(Display*) {
     tickCount += 1;
-    if (tickCount < 3) {
+    if (tickCount < textSpeed) {
         return;
     }
     tickCount = 0; 
@@ -815,7 +842,10 @@ void TextDisplay::shortButtonPress(Display* d) {
     changeState(d, d->generalMenu);
 }
 
-void TextDisplay::longButtonPress(Display*) {}
+void TextDisplay::longButtonPress(Display* d) {
+    d->textDisplayMenu->setPreviousDisplayState(this);
+    changeState(d, d->textDisplayMenu);
+}
 
 void TextDisplay::rotationLeft(Display* d) {
     d->displayStateDown();
@@ -829,6 +859,14 @@ void TextDisplay::rotationRight(Display* d) {
 
 void TextDisplay::reset() {
     xPos = 0;
+}
+
+void TextDisplay::setTextSpeed(int textSpeed) {
+    this->textSpeed = textSpeed;
+}
+
+int TextDisplay::getTextSpeed() {
+    return textSpeed;
 }
 
 AnimationDisplay::AnimationDisplay() {
@@ -1106,6 +1144,34 @@ int TimeDisplayMonth::giveTimeValue(DateTime now) {
     return now.month();
 }
 
+TextSpeed::TextSpeed() {
+    name = F("Geschwindigkeit Text");
+}
+
+void TextSpeed::rotationLeft(Display* d, DisplayState*) {
+    int textSpeed = d->textDisplay->getTextSpeed();
+    if (textSpeed - 1 < 1)
+        return;
+    d->textDisplay->setTextSpeed(textSpeed - 1);
+}
+
+void TextSpeed::rotationRight(Display* d, DisplayState*) {
+    int textSpeed = d->textDisplay->getTextSpeed();
+    if (textSpeed + 1 > 10)
+        return;
+    d->textDisplay->setTextSpeed(textSpeed + 1);
+}
+
+String TextSpeed::getName(Display* d, DisplayState*) {
+    return name;
+}
+
+String TextSpeed::getValue(Display* d, DisplayState*) {
+    return String(d->textDisplay->getTextSpeed());
+}
+
+void TextSpeed::reset(Display*, DisplayState*) {}
+
 Menu::Menu(List* options) {
     this->options = options;
     optionsIndex = 0;
@@ -1310,5 +1376,4 @@ void loop() {
     events->clear();
 
     d->update();
-    delay(100);
 }
