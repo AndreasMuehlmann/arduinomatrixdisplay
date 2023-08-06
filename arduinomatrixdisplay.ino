@@ -269,6 +269,7 @@ public:
     TextDisplay* textDisplay;
     Menu* textDisplayMenu;
     RealTimeClock* realTimeClock;
+    DisplayState* displayStates[AMOUNT_DISPLAY_STATES];
     Display();
     void update();
     void shortButtonPress();
@@ -297,7 +298,6 @@ private:
 private:
     DisplayState* _state;
     int displayStateIndex;
-    DisplayState* displayStates[AMOUNT_DISPLAY_STATES];
     NumberDrawer5By3* numberDrawer5By3;
     int defaultColorIndex;
     Color* defaultColor;
@@ -328,6 +328,38 @@ public:
 class NameDisplay : public DisplayState {
 public:
     NameDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+};
+
+class TassiloNameDisplay : public DisplayState {
+public:
+    TassiloNameDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+};
+
+class JohannaNameDisplay : public DisplayState {
+public:
+    JohannaNameDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+};
+
+class LuisaNameDisplay : public DisplayState {
+public:
+    LuisaNameDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+};
+
+class StefanieNameDisplay : public DisplayState {
+public:
+    StefanieNameDisplay();
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
@@ -736,24 +768,10 @@ void TurnedOffDisplay::longButtonPress(Display* d) {}
 NameDisplay::NameDisplay() {}
 
 void NameDisplay::update(Display*) {
-    matrix.setTextWrap(false);
+    matrix.setTextWrap(true);
     matrix.fillScreen(0);
     matrix.setCursor(0, 0);
-    matrix.print("T");
-    matrix.setCursor(5, 0);
-    matrix.print("a");
-    matrix.setCursor(11, -2);
-    matrix.print("s");
-    matrix.setCursor(11, 0);
-    matrix.print("s");
-    matrix.setCursor(0, 9);
-    matrix.print("i");
-    matrix.setCursor(5, 9);
-    matrix.print("l");
-    matrix.setCursor(10, 9);
-    matrix.print("o");
-    matrix.drawPixel(15, 2, 0);
-    matrix.drawPixel(11, 4, 0);
+    matrix.print("Name");
     matrix.show();
 }
 
@@ -763,6 +781,114 @@ void NameDisplay::shortButtonPress(Display* d) {
 }
 
 void NameDisplay::longButtonPress(Display*) {}
+
+TassiloNameDisplay::TassiloNameDisplay() {}
+
+void TassiloNameDisplay::update(Display* d) {
+    matrix.setTextWrap(false);
+    matrix.fillScreen(0);
+    matrix.setCursor(0, 0);
+    matrix.print("T");
+    matrix.setCursor(5, 0);
+    matrix.print("a");
+
+    matrix.setCursor(11, -2);
+    matrix.print("s");
+    matrix.setCursor(11, 0);
+    matrix.print("s");
+    matrix.drawPixel(15, 2, 0);
+    matrix.drawPixel(11, 4, 0);
+
+    matrix.setCursor(0, 9);
+    matrix.print("i");
+
+    matrix.drawLine(4, 10, 7, 15, d->getDefaultColor()->getEncodedColor());
+    matrix.fillRect(7, 14, 2, 2, d->getDefaultColor()->getEncodedColor());
+
+    matrix.setCursor(11, 6);
+    matrix.print("o");
+    matrix.drawLine(9, 12, 10, 11, d->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(9, 14, 10, 13, d->getDefaultColor()->getEncodedColor());
+    matrix.show();
+}
+
+void TassiloNameDisplay::shortButtonPress(Display* d) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+void TassiloNameDisplay::longButtonPress(Display*) {}
+
+JohannaNameDisplay::JohannaNameDisplay() {}
+
+void JohannaNameDisplay::update(Display*) {
+    matrix.setTextWrap(false);
+    matrix.fillScreen(0);
+    matrix.setCursor(0, 0);
+    matrix.print("J");
+
+    matrix.setCursor(5, 0);
+    matrix.print("o");
+    matrix.drawLine(5, 2, 9, 2, 0);
+    matrix.drawLine(5, 3, 10, 3, d->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(10, 4, 10, 3, d->getDefaultColor()->getEncodedColor());
+    matrix.drawPixel(6, 1, d->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(8, 1, 8, 0, d->getDefaultColor()->getEncodedColor());
+
+    matrix.setCursor(11, 0);
+    matrix.print("h");
+    matrix.setCursor(1, 6);
+    matrix.print("a");
+    matrix.setCursor(4, 11);
+    matrix.print("n");
+    matrix.setCursor(7, 6);
+    matrix.print("n");
+    matrix.setCursor(11, 9);
+    matrix.print("a");
+
+    matrix.show();
+}
+
+void JohannaNameDisplay::shortButtonPress(Display* d) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+void JohannaNameDisplay::longButtonPress(Display*) {}
+
+LuisaNameDisplay::LuisaNameDisplay() {}
+
+void LuisaNameDisplay::update(Display*) {
+    matrix.setTextWrap(false);
+    matrix.fillScreen(0);
+    matrix.setCursor(0, 0);
+    matrix.print("Luisa");
+    matrix.show();
+}
+
+void LuisaNameDisplay::shortButtonPress(Display* d) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+void LuisaNameDisplay::longButtonPress(Display*) {}
+
+StefanieNameDisplay::StefanieNameDisplay() {}
+
+void StefanieNameDisplay::update(Display*) {
+    matrix.setTextWrap(false);
+    matrix.fillScreen(0);
+    matrix.setCursor(0, 0);
+    matrix.print("Stefanie");
+    matrix.show();
+}
+
+void StefanieNameDisplay::shortButtonPress(Display* d) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+void StefanieNameDisplay::longButtonPress(Display*) {}
 
 TimeDisplay::TimeDisplay(Display* d) {
     for (int i = 0; i < 6; i++) {
@@ -1266,7 +1392,7 @@ String TextSpeed::getName(Display* d, DisplayState*) {
 }
 
 String TextSpeed::getValue(Display* d, DisplayState*) {
-    return String(d->textDisplay->getTextSpeed());
+    return String(11 - d->textDisplay->getTextSpeed());
 }
 
 void TextSpeed::reset(Display*, DisplayState*) {}
@@ -1431,6 +1557,30 @@ void dt_interrupt() {
     lastTimeRotationInterrupt = millis();
 }
 
+void tassiloSetup(Display* d) {
+    d->displayStates[0] = new TassiloNameDisplay();
+    d->setDisplayState(0);
+    d->setDefaultColor(1);
+}
+
+void johannaSetup(Display* d) {
+    d->displayStates[0] = new JohannaNameDisplay();
+    d->setDisplayState(0);
+    d->setDefaultColor(6);
+}
+
+void luisaSetup(Display* d) {
+    d->displayStates[0] = new LuisaNameDisplay();
+    d->setDisplayState(0);
+    d->setDefaultColor(5);
+}
+
+void stefanieSetup(Display* d) {
+    d->displayStates[0] = new StefanieNameDisplay();
+    d->setDisplayState(0);
+    d->setDefaultColor(2);
+}
+
 void setup() {
     firstRotationState = TIMEOUT;
     lastRotationState = TIMEOUT;
@@ -1449,11 +1599,15 @@ void setup() {
     colors[2] = new Color(F("gelb"), 255, 160, 0);
     colors[3] = new Color(F("gruen"), 0, 255, 0);
     colors[4] = new Color(F("blau"), 0, 0, 255);
-    colors[5] = new Color(F("lila"), 190, 115, 150);
-    colors[6] = new Color(F("pink"), 255, 80, 120);
+    colors[5] = new Color(F("lila"), 255, 0, 255);
+    colors[6] = new Color(F("pink"), 255, 0, 125);
     colors[7] = new Color(F("weiss"), 255, 255, 255);
 
     d = new Display();
+    // tassiloSetup(d);
+    // johannaSetup(d);
+    luisaSetup(d);
+    // stefanieSetup(d);
 }
 
 void loop() {
