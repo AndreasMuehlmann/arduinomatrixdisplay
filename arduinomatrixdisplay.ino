@@ -902,7 +902,33 @@ void StefanieNameDisplay::update(Display*) {
     matrix.setTextWrap(false);
     matrix.fillScreen(0);
     matrix.setCursor(0, 0);
-    matrix.print("Stefanie");
+    matrix.print("S");
+    
+    matrix.drawLine(6, 7, 11, 7, d->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(10, 6, 10, 8, d->getDefaultColor()->getEncodedColor());
+    matrix.drawPixel(5, 6, d->getDefaultColor()->getEncodedColor());
+    matrix.drawPixel(6, 5, d->getDefaultColor()->getEncodedColor());
+
+    matrix.setCursor(7, -2);
+    matrix.print("e");
+    matrix.setCursor(11, 0);
+    matrix.print("f");
+
+    matrix.setCursor(0, 9);
+    matrix.print("a");
+    
+    matrix.drawLine(6, 13, 3, 10, d->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(4, 10, 5, 9, d->getDefaultColor()->getEncodedColor());
+    matrix.drawLine(6, 9, 8, 11, d->getDefaultColor()->getEncodedColor());
+
+    matrix.setCursor(11, 7);
+    matrix.print("e");
+
+    matrix.drawLine(10, 15, 13, 15, d->getDefaultColor()->getEncodedColor());
+    matrix.drawPixel(15, 15, d->getDefaultColor()->getEncodedColor());
+
+    matrix.fillRect(8, 13, 2, 2, d->getDefaultColor()->getEncodedColor());
+
     matrix.show();
 }
 
@@ -1629,8 +1655,8 @@ void setup() {
     d = new Display();
     // tassiloSetup(d);
     // johannaSetup(d);
-    luisaSetup(d);
-    // stefanieSetup(d);
+    // luisaSetup(d);
+    stefanieSetup(d);
 }
 
 void loop() {
