@@ -3,6 +3,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <Wire.h>
 #include <RTClib.h>
+#include <LowPower.h>
 
 
 //TODO: personalized NameDisplays
@@ -12,12 +13,12 @@
 const int MATRIXDATAPIN = 7;
 const int SIZE = 16;
 const int CHAR_WIDTH = 6;
-const int MAX_OPTIONS = 10;
+const int MAX_OPTIONS = 20;
 const int COLORS_AMOUNT = 8;
 const int AMOUNT_DISPLAY_STATES = 5;
 
-const int CLK_PIN = 2;
-const int DT_PIN = 3;
+const int DT_PIN = 2;
+const int CLK_PIN = 3;
 const int SW_PIN_FOR_FALLING = 18;
 const int SW_PIN_FOR_RISING = 19;
 
@@ -314,6 +315,7 @@ public:
     virtual void longButtonPress(Display*);
     virtual void rotationLeft(Display*);
     virtual void rotationRight(Display*);
+    virtual void reset(Display*);
 protected:
     void changeState(Display*, DisplayState*);
 };
@@ -323,6 +325,9 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
+    void reset(Display*);
+private:
+    bool turnedOff;
 };
 
 class NameDisplay : public DisplayState {
@@ -365,6 +370,14 @@ public:
     virtual void longButtonPress(Display*);
 };
 
+class AndiNameDisplay : public DisplayState {
+public:
+    AndiNameDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+};
+
 class TimeDisplay : public DisplayState {
 public:
     TimeDisplay(Display*);
@@ -393,6 +406,7 @@ public:
     void rotationLeft(Display*);
     void rotationRight(Display*);
     void reset();
+    void setText(String text);
     void setTextSpeed(int);
     int getTextSpeed();
 private:
@@ -718,6 +732,7 @@ void Display::setTurnOnHour(int turnOnHour) {
 
 void Display::setDisplayState(int index) {
     displayStateIndex = index;
+    _state->reset(this);
     _state = displayStates[displayStateIndex];
 };
 
@@ -725,6 +740,7 @@ void Display::displayStateUp() {
     displayStateIndex += 1;
     if (displayStateIndex > AMOUNT_DISPLAY_STATES - 1)
         displayStateIndex = 0;
+    _state->reset(this);
     _state = displayStates[displayStateIndex];
 };
 
@@ -732,6 +748,7 @@ void Display::displayStateDown() {
     displayStateIndex -= 1;
     if (displayStateIndex < 0)
         displayStateIndex = AMOUNT_DISPLAY_STATES - 1;
+    _state->reset(this);
     _state = displayStates[displayStateIndex];
 };
 
@@ -753,9 +770,16 @@ void DisplayState::changeState(Display* d, DisplayState* s) {
     d->changeState(s);
 }
 
+void DisplayState::reset(Display* d) {}
+
+
 void TurnedOffDisplay::update(Display*) {
-    matrix.fillScreen(0);
-    matrix.show();
+    if (!turnedOff) {
+        matrix.fillScreen(0);
+        matrix.show();
+        turnedOff = true;
+    }
+    LowPower.powerDown(SLEEP_250MS, ADC_OFF, BOD_OFF);
 }
 
 void TurnedOffDisplay::shortButtonPress(Display* d) {
@@ -764,6 +788,10 @@ void TurnedOffDisplay::shortButtonPress(Display* d) {
 }
 
 void TurnedOffDisplay::longButtonPress(Display* d) {}
+
+void TurnedOffDisplay::reset(Display* d) {
+    turnedOff = false;
+}
 
 NameDisplay::NameDisplay() {}
 
@@ -939,6 +967,25 @@ void StefanieNameDisplay::shortButtonPress(Display* d) {
 
 void StefanieNameDisplay::longButtonPress(Display*) {}
 
+AndiNameDisplay::AndiNameDisplay() {}
+
+void AndiNameDisplay::update(Display*) {
+    matrix.setTextWrap(false);
+    matrix.fillScreen(0);
+    matrix.setCursor(2, 0);
+    matrix.print("An");
+    matrix.setCursor(2, 9);
+    matrix.print("di");
+    matrix.show();
+}
+
+void AndiNameDisplay::shortButtonPress(Display* d) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+void AndiNameDisplay::longButtonPress(Display*) {}
+
 TimeDisplay::TimeDisplay(Display* d) {
     for (int i = 0; i < 6; i++) {
         setColorIndex(d, -1, i);
@@ -1076,6 +1123,10 @@ void TextDisplay::rotationRight(Display* d) {
 
 void TextDisplay::reset() {
     xPos = 0;
+}
+
+void TextDisplay::setText(String text) {
+    this->text = text;
 }
 
 void TextDisplay::setTextSpeed(int textSpeed) {
@@ -1424,16 +1475,16 @@ TextSpeed::TextSpeed() {
 
 void TextSpeed::rotationLeft(Display* d, DisplayState*) {
     int textSpeed = d->textDisplay->getTextSpeed();
-    if (textSpeed - 1 < 1)
+    if (textSpeed + 1 > 10)
         return;
-    d->textDisplay->setTextSpeed(textSpeed - 1);
+    d->textDisplay->setTextSpeed(textSpeed + 1);
 }
 
 void TextSpeed::rotationRight(Display* d, DisplayState*) {
     int textSpeed = d->textDisplay->getTextSpeed();
-    if (textSpeed + 1 > 10)
+    if (textSpeed - 1 < 1)
         return;
-    d->textDisplay->setTextSpeed(textSpeed + 1);
+    d->textDisplay->setTextSpeed(textSpeed - 1);
 }
 
 String TextSpeed::getName(Display* d, DisplayState*) {
@@ -1541,7 +1592,7 @@ RealTimeClock::RealTimeClock() {
     if (!rtc.begin()) {
         // Serial.println("RTC nicht gefunden!");
     }
-    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 }
 
 void RealTimeClock::setTime(DateTime dateTime) {
@@ -1610,24 +1661,34 @@ void tassiloSetup(Display* d) {
     d->displayStates[0] = new TassiloNameDisplay();
     d->setDisplayState(0);
     d->setDefaultColor(1);
+    d->textDisplay->setText("I'm a Pfadfinder!");
 }
 
 void johannaSetup(Display* d) {
     d->displayStates[0] = new JohannaNameDisplay();
     d->setDisplayState(0);
     d->setDefaultColor(6);
+    d->textDisplay->setText("I live in a one square meter room!");
 }
 
 void luisaSetup(Display* d) {
     d->displayStates[0] = new LuisaNameDisplay();
     d->setDisplayState(0);
     d->setDefaultColor(5);
+    d->textDisplay->setText("I like nature!");
 }
 
 void stefanieSetup(Display* d) {
     d->displayStates[0] = new StefanieNameDisplay();
     d->setDisplayState(0);
     d->setDefaultColor(2);
+    d->textDisplay->setText("Yeaah goal!!!!");
+}
+
+void andiSetup(Display* d) {
+    d->displayStates[0] = new AndiNameDisplay();
+    d->setDisplayState(0);
+    d->setDefaultColor(4);
 }
 
 void setup() {
@@ -1636,10 +1697,10 @@ void setup() {
     lastTimeRotationInterrupt = 0;
     startTimeButtonPressed = 0;
 
-    attachInterrupt(digitalPinToInterrupt(CLK_PIN), clk_interrupt, RISING);
-    attachInterrupt(digitalPinToInterrupt(DT_PIN), dt_interrupt, RISING);
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_FALLING), sw_falling_interrupt, FALLING);
     attachInterrupt(digitalPinToInterrupt(SW_PIN_FOR_RISING), sw_rising_interrupt, RISING);
+    attachInterrupt(digitalPinToInterrupt(CLK_PIN), clk_interrupt, RISING);
+    attachInterrupt(digitalPinToInterrupt(DT_PIN), dt_interrupt, RISING);
 
     events = new List();
 
@@ -1654,9 +1715,10 @@ void setup() {
 
     d = new Display();
     // tassiloSetup(d);
-    // johannaSetup(d);
+    johannaSetup(d);
     // luisaSetup(d);
-    stefanieSetup(d);
+    // stefanieSetup(d);
+    // andiSetup(d);
 }
 
 void loop() {
