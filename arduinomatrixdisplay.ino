@@ -7,7 +7,6 @@
 
 
 //TODO: personalized Texts
-//TODO: turnOff with 2s long button Press => detach Interrupts for rotation, powerDown with SLEEP_FOREVER
 
 
 const int MATRIXDATAPIN = 7;
@@ -310,7 +309,6 @@ private:
     int defaultBrightness;
     int turnOffHour;
     int turnOnHour;
-    int savedDisplayStateIndex;
     bool turnedOff;
 };
 
@@ -627,36 +625,16 @@ Display::Display() {
 
     turnOffHour = 21;
     turnOnHour = 10;
-    savedDisplayStateIndex = -1;
 
     turnedOff = false;
-}
-
-void Display::turnOn() {
-    turnedOff = false;
-    _state->reset(this);
-    _state = displayStates[displayStateIndex];
-}
-
-void Display::turnOff() {
-    turnedOff = true;
-    _state->reset(this);
-    _state = turnedOffDisplay;
-}
-
-bool Display::isTurnedOff() {
-    return turnedOff;
 }
 
 void Display::update() {
     DateTime now = realTimeClock->getTime();
-    if (now.hour() == turnOffHour && now.minute() == 0  && now.second() < 10) {
-        if (displayStateIndex != AMOUNT_DISPLAY_STATES - 1)
-            savedDisplayStateIndex = displayStateIndex;
-        setDisplayState(AMOUNT_DISPLAY_STATES - 1);
-    } else if (now.hour() == turnOnHour && now.minute() == 0 && now.second() < 10 && savedDisplayStateIndex != -1) {
-        setDisplayState(savedDisplayStateIndex);
-        savedDisplayStateIndex = -1;
+    if (now.hour() == turnOffHour && now.minute() == 0  && now.second() < 10 && !isTurnedOff()) {
+        turnOff();
+    } else if (now.hour() == turnOnHour && now.minute() == 0 && now.second() < 10 && isTurnedOff()) {
+        turnOn();
     }
     _state->update(this);
     delay(100);
@@ -777,6 +755,22 @@ void Display::displayStateDown() {
     _state->reset(this);
     _state = displayStates[displayStateIndex];
 };
+
+void Display::turnOn() {
+    turnedOff = false;
+    _state->reset(this);
+    _state = displayStates[displayStateIndex];
+}
+
+void Display::turnOff() {
+    turnedOff = true;
+    _state->reset(this);
+    _state = turnedOffDisplay;
+}
+
+bool Display::isTurnedOff() {
+    return turnedOff;
+}
 
 Display* d;
 
