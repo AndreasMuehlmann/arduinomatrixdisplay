@@ -6,8 +6,8 @@
 #include <LowPower.h>
 
 
-//TODO: personalized NameDisplays
 //TODO: personalized Texts
+//TODO: turnOff with 2s long button Press => detach Interrupts for rotation, powerDown with SLEEP_FOREVER
 
 
 const int MATRIXDATAPIN = 7;
@@ -15,7 +15,7 @@ const int SIZE = 16;
 const int CHAR_WIDTH = 6;
 const int MAX_OPTIONS = 20;
 const int COLORS_AMOUNT = 8;
-const int AMOUNT_DISPLAY_STATES = 5;
+const int AMOUNT_DISPLAY_STATES = 4;
 
 const int DT_PIN = 2;
 const int CLK_PIN = 3;
@@ -44,7 +44,8 @@ enum EventEnum {
     ROTATIONLEFT,
     ROTATIONRIGHT,
     SHORTBUTTONPRESS,
-    LONGBUTTONPRESS
+    LONGBUTTONPRESS,
+    VERYLONGBUTTONPRESS
 };
 
 class Event : public Element {
@@ -269,6 +270,7 @@ public:
     Menu* timeDisplayMenu;
     TextDisplay* textDisplay;
     Menu* textDisplayMenu;
+    TurnedOffDisplay* turnedOffDisplay;
     RealTimeClock* realTimeClock;
     DisplayState* displayStates[AMOUNT_DISPLAY_STATES];
     Display();
@@ -290,6 +292,9 @@ public:
     void setDisplayState(int);
     void displayStateUp();
     void displayStateDown();
+    void turnOff();
+    void turnOn();
+    bool isTurnedOff();
 private:
     friend class DisplayState;
     void changeState(DisplayState*);
@@ -306,6 +311,7 @@ private:
     int turnOffHour;
     int turnOnHour;
     int savedDisplayStateIndex;
+    bool turnedOff;
 };
 
 class DisplayState {
@@ -325,6 +331,8 @@ public:
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
     virtual void longButtonPress(Display*);
+    virtual void rotationLeft(Display*);
+    virtual void rotationRight(Display*);
     void reset(Display*);
 private:
     bool turnedOff;
@@ -603,12 +611,12 @@ Display::Display() {
     timeDisplayMenu = new Menu(giveTimeDisplayMenuOptions());
     textDisplay = new TextDisplay();
     textDisplayMenu = new Menu(giveTextDisplayMenuOptions());
+    turnedOffDisplay = new TurnedOffDisplay();
     displayStateIndex = 0;
     displayStates[0] = new NameDisplay();
     displayStates[1] = timeDisplay;
     displayStates[2] = textDisplay;
     displayStates[3] = new AnimationDisplay();
-    displayStates[4] = new TurnedOffDisplay();
     generalMenu = new Menu(giveGeneralMenuOptions());
     realTimeClock = new RealTimeClock();
     _state = displayStates[displayStateIndex];
@@ -620,6 +628,24 @@ Display::Display() {
     turnOffHour = 21;
     turnOnHour = 10;
     savedDisplayStateIndex = -1;
+
+    turnedOff = false;
+}
+
+void Display::turnOn() {
+    turnedOff = false;
+    _state->reset(this);
+    _state = displayStates[displayStateIndex];
+}
+
+void Display::turnOff() {
+    turnedOff = true;
+    _state->reset(this);
+    _state = turnedOffDisplay;
+}
+
+bool Display::isTurnedOff() {
+    return turnedOff;
 }
 
 void Display::update() {
@@ -779,15 +805,19 @@ void TurnedOffDisplay::update(Display*) {
         matrix.show();
         turnedOff = true;
     }
-    LowPower.powerDown(SLEEP_250MS, ADC_OFF, BOD_OFF);
+    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
 }
 
 void TurnedOffDisplay::shortButtonPress(Display* d) {
-    d->generalMenu->setPreviousDisplayState(this);
-    changeState(d, d->generalMenu);
+    d->turnOn();
 }
 
-void TurnedOffDisplay::longButtonPress(Display* d) {}
+void TurnedOffDisplay::longButtonPress(Display* d) {
+    d->turnOn();
+}
+
+void TurnedOffDisplay::rotationLeft(Display*) {}
+void TurnedOffDisplay::rotationRight(Display* d) {}
 
 void TurnedOffDisplay::reset(Display* d) {
     turnedOff = false;
@@ -1612,7 +1642,9 @@ void sw_rising_interrupt() {
         if (event->eventEnum == SHORTBUTTONPRESS || event->eventEnum == LONGBUTTONPRESS)
             return;
     }
-    if (millis() - startTimeButtonPressed > 300) {
+    if (millis() - startTimeButtonPressed > 1000) {
+        events->add(new Event(VERYLONGBUTTONPRESS));
+    } else if (millis() - startTimeButtonPressed > 300) {
         events->add(new Event(LONGBUTTONPRESS));
     } else {
         events->add(new Event(SHORTBUTTONPRESS));
@@ -1692,6 +1724,8 @@ void andiSetup(Display* d) {
 }
 
 void setup() {
+    //Serial.begin(9600);
+
     firstRotationState = TIMEOUT;
     lastRotationState = TIMEOUT;
     lastTimeRotationInterrupt = 0;
@@ -1729,6 +1763,13 @@ void loop() {
         }
         else if (event->eventEnum == LONGBUTTONPRESS) {
             d->longButtonPress();
+        }
+        else if (event->eventEnum == VERYLONGBUTTONPRESS) {
+            if (d->isTurnedOff()) {
+                d->turnOn();
+            } else {
+                d->turnOff();
+            }
         }
         else if (event->eventEnum == ROTATIONLEFT) {
             d->rotationLeft();
