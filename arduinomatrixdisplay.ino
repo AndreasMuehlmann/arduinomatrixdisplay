@@ -8,7 +8,6 @@
 
 //TODO: personalized Texts
 
-
 const int MATRIXDATAPIN = 7;
 const int SIZE = 16;
 const int CHAR_WIDTH = 6;
@@ -20,6 +19,8 @@ const int DT_PIN = 2;
 const int CLK_PIN = 3;
 const int SW_PIN_FOR_FALLING = 18;
 const int SW_PIN_FOR_RISING = 19;
+
+bool allowSleeping = true;
 
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(SIZE, SIZE, MATRIXDATAPIN,
         NEO_MATRIX_TOP     + NEO_MATRIX_LEFT  +
@@ -799,17 +800,12 @@ void TurnedOffDisplay::update(Display*) {
         matrix.show();
         turnedOff = true;
     }
-    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+    if (allowSleeping)
+        LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
 }
 
-void TurnedOffDisplay::shortButtonPress(Display* d) {
-    d->turnOn();
-}
-
-void TurnedOffDisplay::longButtonPress(Display* d) {
-    d->turnOn();
-}
-
+void TurnedOffDisplay::shortButtonPress(Display* d) {}
+void TurnedOffDisplay::longButtonPress(Display* d) {}
 void TurnedOffDisplay::rotationLeft(Display*) {}
 void TurnedOffDisplay::rotationRight(Display* d) {}
 
@@ -1616,7 +1612,7 @@ RealTimeClock::RealTimeClock() {
     if (!rtc.begin()) {
         // Serial.println("RTC nicht gefunden!");
     }
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 }
 
 void RealTimeClock::setTime(DateTime dateTime) {
@@ -1628,6 +1624,8 @@ DateTime RealTimeClock::getTime() {
 }
 void sw_falling_interrupt() {
     startTimeButtonPressed = millis();
+    allowSleeping = false;
+    //Serial.println("falling");
 }
 
 void sw_rising_interrupt() {
@@ -1643,6 +1641,8 @@ void sw_rising_interrupt() {
     } else {
         events->add(new Event(SHORTBUTTONPRESS));
     }
+    allowSleeping = true;
+    //Serial.println("rising");
 }
 
 void clk_interrupt() {
@@ -1764,6 +1764,7 @@ void loop() {
             } else {
                 d->turnOff();
             }
+            break;
         }
         else if (event->eventEnum == ROTATIONLEFT) {
             d->rotationLeft();
