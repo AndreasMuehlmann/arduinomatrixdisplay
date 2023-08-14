@@ -412,7 +412,7 @@ public:
     virtual void longButtonPress(Display*);
     void rotationLeft(Display*);
     void rotationRight(Display*);
-    void reset();
+    void reset(Display*);
     void setText(String text);
     void setTextSpeed(int);
     int getTextSpeed();
@@ -431,7 +431,7 @@ public:
     virtual void longButtonPress(Display*);
     void rotationLeft(Display*);
     void rotationRight(Display*);
-    void reset();
+    void reset(Display*);
 private:
     double startFaktor;
     double softCutOff;
@@ -583,7 +583,7 @@ public:
     void rotationLeft(Display*);
     void rotationRight(Display*);
     void setPreviousDisplayState(DisplayState*);
-    void reset();
+    void reset(Display*);
 private:
     List* options;
     int optionsIndex;
@@ -632,9 +632,9 @@ Display::Display() {
 
 void Display::update() {
     DateTime now = realTimeClock->getTime();
-    if (now.hour() == turnOffHour && now.minute() == 0  && now.second() < 10 && !isTurnedOff()) {
+    if (now.hour() == turnOffHour && now.minute() == 0  && now.second() < 15 && !isTurnedOff()) {
         turnOff();
-    } else if (now.hour() == turnOnHour && now.minute() == 0 && now.second() < 10 && isTurnedOff()) {
+    } else if (now.hour() == turnOnHour && now.minute() == 0 && now.second() < 15 && isTurnedOff()) {
         turnOn();
     }
     _state->update(this);
@@ -758,12 +758,16 @@ void Display::displayStateDown() {
 };
 
 void Display::turnOn() {
+    if (!turnedOff)
+        return;
     turnedOff = false;
     _state->reset(this);
     _state = displayStates[displayStateIndex];
 }
 
 void Display::turnOff() {
+    if (turnedOff)
+        return;
     turnedOff = true;
     _state->reset(this);
     _state = turnedOffDisplay;
@@ -801,7 +805,7 @@ void TurnedOffDisplay::update(Display*) {
         turnedOff = true;
     }
     if (allowSleeping)
-        LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+        LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
 }
 
 void TurnedOffDisplay::shortButtonPress(Display* d) {}
@@ -1133,15 +1137,15 @@ void TextDisplay::longButtonPress(Display* d) {
 
 void TextDisplay::rotationLeft(Display* d) {
     d->displayStateDown();
-    reset();
+    reset(d);
 }
 
 void TextDisplay::rotationRight(Display* d) {
     d->displayStateUp();
-    reset();
+    reset(d);
 }
 
-void TextDisplay::reset() {
+void TextDisplay::reset(Display*) {
     xPos = 0;
 }
 
@@ -1191,15 +1195,15 @@ void AnimationDisplay::longButtonPress(Display*) {}
 
 void AnimationDisplay::rotationLeft(Display* d) {
     d->displayStateDown();
-    reset();
+    reset(d);
 }
 
 void AnimationDisplay::rotationRight(Display* d) {
     d->displayStateUp();
-    reset();
+    reset(d);
 }
 
-void AnimationDisplay::reset() {
+void AnimationDisplay::reset(Display*) {
     startFaktor = 1.0;
 }
 
@@ -1563,7 +1567,8 @@ void Menu::shortButtonPress(Display* d) {
 void Menu::longButtonPress(Display* d) {
     option = options->valueAt(optionsIndex);
     option->reset(d, previousDisplayState);
-    reset();
+    reset(d);
+    previousDisplayState->reset(d);
     changeState(d, previousDisplayState);
 }
 
@@ -1597,7 +1602,7 @@ void Menu::rotationRight(Display* d) {
     }
 }
 
-void Menu::reset() {
+void Menu::reset(Display*) {
     selected = false;
     xPosName = 0;
     xPosValue = 0;
@@ -1625,7 +1630,6 @@ DateTime RealTimeClock::getTime() {
 void sw_falling_interrupt() {
     startTimeButtonPressed = millis();
     allowSleeping = false;
-    //Serial.println("falling");
 }
 
 void sw_rising_interrupt() {
@@ -1634,7 +1638,7 @@ void sw_rising_interrupt() {
         if (event->eventEnum == SHORTBUTTONPRESS || event->eventEnum == LONGBUTTONPRESS)
             return;
     }
-    if (millis() - startTimeButtonPressed > 1000) {
+    if (millis() - startTimeButtonPressed > 3000) {
         events->add(new Event(VERYLONGBUTTONPRESS));
     } else if (millis() - startTimeButtonPressed > 300) {
         events->add(new Event(LONGBUTTONPRESS));
@@ -1642,7 +1646,6 @@ void sw_rising_interrupt() {
         events->add(new Event(SHORTBUTTONPRESS));
     }
     allowSleeping = true;
-    //Serial.println("rising");
 }
 
 void clk_interrupt() {
