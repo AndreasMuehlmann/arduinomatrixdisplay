@@ -476,6 +476,26 @@ private:
     String text;
 };
 
+class HumidityDisplay : public DisplayState {
+public:
+    HumidityDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+private:
+    int xPos;
+    String text;
+};
+
+class QualityDisplay : public DisplayState {
+public:
+    QualityDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+private:
+    int xPos;
+    String text;
+};
+
 class Option : public Element {
 public:
     virtual void rotationLeft(Display*, DisplayState*);
@@ -665,7 +685,7 @@ Display::Display() {
     displayStateIndex = 0;
     realTimeClock = new RealTimeClock();
     bme680 = new Bme680();
-    amountDisplayStates = 7;
+    amountDisplayStates = 9;
     displayStates[0] = new NameDisplay();
     displayStates[1] = timeDisplay;
     displayStates[2] = textDisplay;
@@ -674,8 +694,10 @@ Display::Display() {
     if (bme680->isWorking()) {
         displayStates[5] = new TemperatureDisplay();
         displayStates[6] = new PressureDisplay();
+        displayStates[7] = new HumidityDisplay();
+        displayStates[8] = new QualityDisplay();
     } else {
-        amountDisplayStates -= 2;
+        amountDisplayStates -= 4;
     }
     generalMenu = new Menu(giveGeneralMenuOptions());
     _state = displayStates[displayStateIndex];
@@ -1349,7 +1371,6 @@ void PressureDisplay::update(Display* d) {
     d->bme680->performReading();
     matrix.fillScreen(0);
     String value = String(d->bme680->getPressure());
-    Serial.println(value);
     d->drawNumbers5By3(value.substring(0, value.indexOf('.')), 0, 1, d->getDefaultColor());
     
     matrix.setTextWrap(false);
@@ -1364,6 +1385,63 @@ void PressureDisplay::update(Display* d) {
 }
 
 void PressureDisplay::shortButtonPress(Display*) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+HumidityDisplay::HumidityDisplay() {
+    xPos = 5;
+    text = "Luftfeuchtigkeit in Prozent";
+}
+
+void HumidityDisplay::update(Display* d) {
+    d->bme680->performReading();
+    matrix.fillScreen(0);
+    String value = String(d->bme680->getHumidity());
+    d->drawNumbers5By3(value.substring(0, 2), 0, 1, d->getDefaultColor());
+    matrix.drawPixel(7, 6, d->getDefaultColor()->getEncodedColor());
+    d->drawNumbers5By3(value.substring(3), 9, 2, d->getDefaultColor());
+    
+    matrix.setTextWrap(false);
+    matrix.setCursor(xPos, 8);
+    int textWidth = text.length() * CHAR_WIDTH;
+    if (xPos < -1 * textWidth) {
+        xPos = 5;
+    }
+    xPos -= 3;
+    matrix.print(text);
+    matrix.show();
+}
+
+void HumidityDisplay::shortButtonPress(Display*) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+QualityDisplay::QualityDisplay() {
+    xPos = 5;
+    text = "Luftqualitaet nach dem Indoor Air Quality Index (IAQ): -50 sehr gut, -100 gut, -150 akzeptabel, -200 ungesund für empfindliche Gruppen, -300 ungesund, -500 sehr ungesund. Stoffe die gemessen werden sind VOCs, Alkohole, Ammoniake und Schwefelverbindungen.";
+}
+
+void QualityDisplay::update(Display* d) {
+    d->bme680->performReading();
+    matrix.fillScreen(0);
+    String value = String(d->bme680->getQuality());
+    Serial.println(value);
+    d->drawNumbers5By3(value.substring(0, value.indexOf('.')), 0, 1, d->getDefaultColor());
+    
+    matrix.setTextWrap(false);
+    matrix.setCursor(xPos, 8);
+    int textWidth = text.length() * CHAR_WIDTH;
+    if (xPos < -1 * textWidth) {
+        xPos = 5;
+    }
+    xPos -= 3;
+    matrix.print(text);
+    matrix.show();
+}
+
+void QualityDisplay::shortButtonPress(Display*) {
     d->generalMenu->setPreviousDisplayState(this);
     changeState(d, d->generalMenu);
 }
