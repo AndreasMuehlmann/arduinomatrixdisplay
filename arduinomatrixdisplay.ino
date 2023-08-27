@@ -8,6 +8,9 @@
 #include <LowPower.h>
 
 
+// personalized texts
+// support for negative temperatures
+
 #define SEALEVELPRESSURE_HPA (1013.25)
 
 
@@ -463,6 +466,16 @@ private:
     String text;
 };
 
+class PressureDisplay : public DisplayState {
+public:
+    PressureDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+private:
+    int xPos;
+    String text;
+};
+
 class Option : public Element {
 public:
     virtual void rotationLeft(Display*, DisplayState*);
@@ -652,17 +665,17 @@ Display::Display() {
     displayStateIndex = 0;
     realTimeClock = new RealTimeClock();
     bme680 = new Bme680();
-    amountDisplayStates = 6;
+    amountDisplayStates = 7;
     displayStates[0] = new NameDisplay();
     displayStates[1] = timeDisplay;
     displayStates[2] = textDisplay;
     displayStates[3] = new AnimationDisplay();
     displayStates[4] = new ColorChangingDisplay();
-    Serial.println(bme680->isWorking());
     if (bme680->isWorking()) {
         displayStates[5] = new TemperatureDisplay();
+        displayStates[6] = new PressureDisplay();
     } else {
-        amountDisplayStates -= 1;
+        amountDisplayStates -= 2;
     }
     generalMenu = new Menu(giveGeneralMenuOptions());
     _state = displayStates[displayStateIndex];
@@ -1327,6 +1340,34 @@ void TemperatureDisplay::shortButtonPress(Display*) {
     changeState(d, d->generalMenu);
 }
 
+PressureDisplay::PressureDisplay() {
+    xPos = 5;
+    text = "Luftdruck in hPa";
+}
+
+void PressureDisplay::update(Display* d) {
+    d->bme680->performReading();
+    matrix.fillScreen(0);
+    String value = String(d->bme680->getPressure());
+    Serial.println(value);
+    d->drawNumbers5By3(value.substring(0, value.indexOf('.')), 0, 1, d->getDefaultColor());
+    
+    matrix.setTextWrap(false);
+    matrix.setCursor(xPos, 8);
+    int textWidth = text.length() * CHAR_WIDTH;
+    if (xPos < -1 * textWidth) {
+        xPos = 5;
+    }
+    xPos -= 3;
+    matrix.print(text);
+    matrix.show();
+}
+
+void PressureDisplay::shortButtonPress(Display*) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
 void Option::rotationLeft(Display*, DisplayState*) {}
 void Option::rotationRight(Display*, DisplayState*) {}
 
@@ -1735,9 +1776,9 @@ void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
 RealTimeClock::RealTimeClock() {
     Wire.begin();
     if (!rtc.begin()) {
-        // Serial.println("RTC not found!");
+        Serial.println("RTC not found!");
     }
-    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 }
 
 void RealTimeClock::setTime(DateTime dateTime) {
@@ -1908,9 +1949,9 @@ void setup() {
     d = new Display();
     // tassiloSetup(d);
     // johannaSetup(d);
-    luisaSetup(d);
+    // luisaSetup(d);
     // stefanieSetup(d);
-    // andiSetup(d);
+    andiSetup(d);
 }
 
 void loop() {
@@ -1940,12 +1981,4 @@ void loop() {
     events->clear();
 
     d->update();
-    /*
-    d->bme680->performReading();
-    Serial.print(d->bme680->getTemperature());
-    Serial.println(" °C");
-    Serial.println(d->bme680->getPressure());
-    Serial.println(d->bme680->getHumidity());
-    Serial.println(d->bme680->getQuality());
-    */
 }
