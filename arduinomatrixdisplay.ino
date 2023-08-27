@@ -1420,7 +1420,7 @@ void HumidityDisplay::shortButtonPress(Display*) {
 
 QualityDisplay::QualityDisplay() {
     xPos = 5;
-    text = "Luftqualitaet nach dem Indoor Air Quality Index (IAQ): -50 sehr gut, -100 gut, -150 akzeptabel, -200 ungesund für empfindliche Gruppen, -300 ungesund, -500 sehr ungesund. Stoffe die gemessen werden sind VOCs, Alkohole, Ammoniake und Schwefelverbindungen.";
+    text = "Gas Widerstand in Ohm. Pendelt sich erst ein. Zunahme des Wertes ist Verbesserung, Abnahme Verschlechterung.";
 }
 
 void QualityDisplay::update(Display* d) {
@@ -1892,7 +1892,7 @@ void Bme680::performReading() {
 }
 
 float Bme680::getQuality() {
-    return bme.gas_resistance / 1000.0;
+    return bme.gas_resistance / 1000;
 }
 
 float Bme680::getHumidity() {
