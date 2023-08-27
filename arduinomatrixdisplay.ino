@@ -16,7 +16,7 @@ const int SIZE = 16;
 const int CHAR_WIDTH = 6;
 const int MAX_OPTIONS = 20;
 const int COLORS_AMOUNT = 8;
-const int AMOUNT_DISPLAY_STATES = 6;
+const int MAX_DISPLAY_STATES = 15;
 
 const int DT_PIN = 2;
 const int CLK_PIN = 3;
@@ -277,7 +277,7 @@ public:
     TurnedOffDisplay* turnedOffDisplay;
     RealTimeClock* realTimeClock;
     Bme680* bme680;
-    DisplayState* displayStates[AMOUNT_DISPLAY_STATES];
+    DisplayState* displayStates[MAX_DISPLAY_STATES];
     Display();
     void update();
     void shortButtonPress();
@@ -309,6 +309,7 @@ private:
 private:
     DisplayState* _state;
     int displayStateIndex;
+    int amountDisplayStates;
     NumberDrawer5By3* numberDrawer5By3;
     int defaultColorIndex;
     Color* defaultColor;
@@ -452,17 +453,14 @@ private:
     double count;
 };
 
-class MeasurementDisplay : public DisplayState {
+class TemperatureDisplay : public DisplayState {
 public:
-    MeasurementDisplay();
+    TemperatureDisplay();
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
-    virtual void longButtonPress(Display*);
 private:
-    int xPosTop;
-    String textTop;
-    int xPosBottom;
-    String textBottom;
+    int xPos;
+    String text;
 };
 
 class Option : public Element {
@@ -636,8 +634,10 @@ public:
     float getQuality();
     float getPressure();
     float getTemperature();
+    bool isWorking();
 private:
     Adafruit_BME680 bme;
+    bool working;
 };
 
 Display::Display() {
@@ -650,15 +650,21 @@ Display::Display() {
     textDisplayMenu = new Menu(giveTextDisplayMenuOptions());
     turnedOffDisplay = new TurnedOffDisplay();
     displayStateIndex = 0;
+    realTimeClock = new RealTimeClock();
+    bme680 = new Bme680();
+    amountDisplayStates = 6;
     displayStates[0] = new NameDisplay();
     displayStates[1] = timeDisplay;
     displayStates[2] = textDisplay;
     displayStates[3] = new AnimationDisplay();
     displayStates[4] = new ColorChangingDisplay();
-    displayStates[5] = new MeasurementDisplay();
+    Serial.println(bme680->isWorking());
+    if (bme680->isWorking()) {
+        displayStates[5] = new TemperatureDisplay();
+    } else {
+        amountDisplayStates -= 1;
+    }
     generalMenu = new Menu(giveGeneralMenuOptions());
-    realTimeClock = new RealTimeClock();
-    bme680 = new Bme680();
     _state = displayStates[displayStateIndex];
     numberDrawer5By3 = new NumberDrawer5By3();
 
@@ -784,7 +790,7 @@ void Display::setDisplayState(int index) {
 
 void Display::displayStateUp() {
     displayStateIndex += 1;
-    if (displayStateIndex > AMOUNT_DISPLAY_STATES - 1)
+    if (displayStateIndex > amountDisplayStates - 1)
         displayStateIndex = 0;
     _state->reset(this);
     _state = displayStates[displayStateIndex];
@@ -793,7 +799,7 @@ void Display::displayStateUp() {
 void Display::displayStateDown() {
     displayStateIndex -= 1;
     if (displayStateIndex < 0)
-        displayStateIndex = AMOUNT_DISPLAY_STATES - 1;
+        displayStateIndex = amountDisplayStates - 1;
     _state->reset(this);
     _state = displayStates[displayStateIndex];
 };
@@ -1292,39 +1298,33 @@ void ColorChangingDisplay::shortButtonPress(Display* d) {
     changeState(d, d->generalMenu);
 }
 
-MeasurementDisplay::MeasurementDisplay() {
-    xPosTop = 5;
-    xPosBottom = 5;
+TemperatureDisplay::TemperatureDisplay() {
+    xPos = 5;
+    text = "Temperatur in Grad Celsius";
 }
 
-void MeasurementDisplay::update(Display* d) {
+void TemperatureDisplay::update(Display* d) {
     d->bme680->performReading();
     matrix.fillScreen(0);
+    String value = String(d->bme680->getTemperature());
+    d->drawNumbers5By3(value.substring(0, 2), 0, 1, d->getDefaultColor());
+    matrix.drawPixel(7, 6, d->getDefaultColor()->getEncodedColor());
+    d->drawNumbers5By3(value.substring(3), 9, 2, d->getDefaultColor());
+    
     matrix.setTextWrap(false);
-    matrix.setCursor(xPosTop, 0);
-    textTop = String(d->bme680->getTemperature()) + " Grad C";
-    matrix.print(textTop);
+    matrix.setCursor(xPos, 8);
+    int textWidth = text.length() * CHAR_WIDTH;
+    if (xPos < -1 * textWidth) {
+        xPos = 5;
+    }
+    xPos -= 3;
+    matrix.print(text);
     matrix.show();
-    xPosTop -= 3;
-    //xPosBottom -= 1;
-    int textTopWidth = textTop.length() * CHAR_WIDTH;
-    if (xPosTop < -1 * textTopWidth) {
-        xPosTop = 5;
-    }
-    /*
-    if (xPosBottom < textBottom.length() + 5) {
-        xPosBottom = 5;
-    }
-    */
 }
 
-void MeasurementDisplay::shortButtonPress(Display*) {
+void TemperatureDisplay::shortButtonPress(Display*) {
     d->generalMenu->setPreviousDisplayState(this);
     changeState(d, d->generalMenu);
-}
-
-void MeasurementDisplay::longButtonPress(Display*) {
-
 }
 
 void Option::rotationLeft(Display*, DisplayState*) {}
@@ -1750,13 +1750,20 @@ DateTime RealTimeClock::getTime() {
 
 Bme680::Bme680() {
     if (!bme.begin()) {
-      // Serial.println("Bme680 not found!");
+        Serial.println("Bme680 not found!");
+        working = false;
+    } else {
+        working = true;
+        bme.setTemperatureOversampling(BME680_OS_2X);
+        bme.setPressureOversampling(BME680_OS_2X);
+        bme.setHumidityOversampling(BME680_OS_2X);
+        bme.setIIRFilterSize(BME680_FILTER_SIZE_7);
+        bme.setGasHeater(320, 150);
     }
-    bme.setTemperatureOversampling(BME680_OS_2X);
-    bme.setPressureOversampling(BME680_OS_2X);
-    bme.setHumidityOversampling(BME680_OS_2X);
-    bme.setIIRFilterSize(BME680_FILTER_SIZE_7);
-    bme.setGasHeater(320, 150);
+}
+
+bool Bme680::isWorking() {
+    return working;
 }
 
 void Bme680::performReading() {
@@ -1901,9 +1908,9 @@ void setup() {
     d = new Display();
     // tassiloSetup(d);
     // johannaSetup(d);
-    // luisaSetup(d);
+    luisaSetup(d);
     // stefanieSetup(d);
-    andiSetup(d);
+    // andiSetup(d);
 }
 
 void loop() {
