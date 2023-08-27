@@ -1,19 +1,22 @@
+#include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
-#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME680.h>
 #include <RTClib.h>
 #include <LowPower.h>
 
 
-//TODO: personalized Texts
+#define SEALEVELPRESSURE_HPA (1013.25)
+
 
 const int MATRIXDATAPIN = 7;
 const int SIZE = 16;
 const int CHAR_WIDTH = 6;
 const int MAX_OPTIONS = 20;
 const int COLORS_AMOUNT = 8;
-const int AMOUNT_DISPLAY_STATES = 4;
+const int AMOUNT_DISPLAY_STATES = 6;
 
 const int DT_PIN = 2;
 const int CLK_PIN = 3;
@@ -262,6 +265,7 @@ class TextDisplay;
 class AnimationDisplay;
 class Menu;
 class RealTimeClock;
+class Bme680;
 
 class Display {
 public:
@@ -272,6 +276,7 @@ public:
     Menu* textDisplayMenu;
     TurnedOffDisplay* turnedOffDisplay;
     RealTimeClock* realTimeClock;
+    Bme680* bme680;
     DisplayState* displayStates[AMOUNT_DISPLAY_STATES];
     Display();
     void update();
@@ -428,7 +433,6 @@ public:
     AnimationDisplay();
     virtual void update(Display*);
     virtual void shortButtonPress(Display*);
-    virtual void longButtonPress(Display*);
     void rotationLeft(Display*);
     void rotationRight(Display*);
     void reset(Display*);
@@ -437,6 +441,28 @@ private:
     double softCutOff;
     double hardCutOff;
     double faktor;
+};
+
+class ColorChangingDisplay : public DisplayState {
+public:
+    ColorChangingDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+private:
+    double count;
+};
+
+class MeasurementDisplay : public DisplayState {
+public:
+    MeasurementDisplay();
+    virtual void update(Display*);
+    virtual void shortButtonPress(Display*);
+    virtual void longButtonPress(Display*);
+private:
+    int xPosTop;
+    String textTop;
+    int xPosBottom;
+    String textBottom;
 };
 
 class Option : public Element {
@@ -602,6 +628,18 @@ private:
     RTC_DS3231 rtc;
 };
 
+class Bme680 {
+public:
+    Bme680();
+    void performReading();
+    float getHumidity();
+    float getQuality();
+    float getPressure();
+    float getTemperature();
+private:
+    Adafruit_BME680 bme;
+};
+
 Display::Display() {
     matrix.begin();
     matrix.setTextSize(1);
@@ -616,8 +654,11 @@ Display::Display() {
     displayStates[1] = timeDisplay;
     displayStates[2] = textDisplay;
     displayStates[3] = new AnimationDisplay();
+    displayStates[4] = new ColorChangingDisplay();
+    displayStates[5] = new MeasurementDisplay();
     generalMenu = new Menu(giveGeneralMenuOptions());
     realTimeClock = new RealTimeClock();
+    bme680 = new Bme680();
     _state = displayStates[displayStateIndex];
     numberDrawer5By3 = new NumberDrawer5By3();
 
@@ -783,7 +824,7 @@ void DisplayState::update(Display*) {}
 void DisplayState::shortButtonPress(Display*) {}
 void DisplayState::longButtonPress(Display*) {}
 
-void DisplayState::rotationLeft(Display*) {
+void DisplayState::rotationLeft(Display* d) {
     d->displayStateDown(); 
 }
 
@@ -1191,8 +1232,6 @@ void AnimationDisplay::shortButtonPress(Display* d) {
     changeState(d, d->generalMenu);
 }
 
-void AnimationDisplay::longButtonPress(Display*) {}
-
 void AnimationDisplay::rotationLeft(Display* d) {
     d->displayStateDown();
     reset(d);
@@ -1205,6 +1244,87 @@ void AnimationDisplay::rotationRight(Display* d) {
 
 void AnimationDisplay::reset(Display*) {
     startFaktor = 1.0;
+}
+
+ColorChangingDisplay::ColorChangingDisplay() {
+    count = 0;
+}
+
+void ColorChangingDisplay::update(Display* d) {
+    int r, g, b;
+    if (count < 255) {
+        r = 255;
+        g = count;
+        b = 0;
+    } else if (count < 255 * 2) {
+        r = 2 * 255 - count;
+        g = 255;
+        b = 0;
+    } else if (count < 255 * 3) {
+        r = 0;
+        g = 255;
+        b = count - 255 * 2;
+    } else if (count < 255 * 4) {
+        r = 0;
+        g = 4 * 255 - count;
+        b = 255;
+    } else if (count < 255 * 5) {
+        r = count - 255 * 4;
+        g = 0;
+        b = 255;
+    } else if (count < 255 * 6) {
+        r = 255;
+        g = 0;
+        b = 6 * 255 - count;
+    } else {
+        count = 0;
+        r = 255;
+        g = 0;
+        b = 0;
+    }
+    matrix.fillScreen(matrix.Color(r, g, b));
+    matrix.show();
+    count += 1;
+}
+
+void ColorChangingDisplay::shortButtonPress(Display* d) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+MeasurementDisplay::MeasurementDisplay() {
+    xPosTop = 5;
+    xPosBottom = 5;
+}
+
+void MeasurementDisplay::update(Display* d) {
+    d->bme680->performReading();
+    matrix.fillScreen(0);
+    matrix.setTextWrap(false);
+    matrix.setCursor(xPosTop, 0);
+    textTop = String(d->bme680->getTemperature()) + " Grad C";
+    matrix.print(textTop);
+    matrix.show();
+    xPosTop -= 3;
+    //xPosBottom -= 1;
+    int textTopWidth = textTop.length() * CHAR_WIDTH;
+    if (xPosTop < -1 * textTopWidth) {
+        xPosTop = 5;
+    }
+    /*
+    if (xPosBottom < textBottom.length() + 5) {
+        xPosBottom = 5;
+    }
+    */
+}
+
+void MeasurementDisplay::shortButtonPress(Display*) {
+    d->generalMenu->setPreviousDisplayState(this);
+    changeState(d, d->generalMenu);
+}
+
+void MeasurementDisplay::longButtonPress(Display*) {
+
 }
 
 void Option::rotationLeft(Display*, DisplayState*) {}
@@ -1615,9 +1735,9 @@ void Menu::setPreviousDisplayState(DisplayState* previousDisplayState) {
 RealTimeClock::RealTimeClock() {
     Wire.begin();
     if (!rtc.begin()) {
-        // Serial.println("RTC nicht gefunden!");
+        // Serial.println("RTC not found!");
     }
-    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 }
 
 void RealTimeClock::setTime(DateTime dateTime) {
@@ -1627,6 +1747,40 @@ void RealTimeClock::setTime(DateTime dateTime) {
 DateTime RealTimeClock::getTime() {
     return rtc.now();
 }
+
+Bme680::Bme680() {
+    if (!bme.begin()) {
+      // Serial.println("Bme680 not found!");
+    }
+    bme.setTemperatureOversampling(BME680_OS_2X);
+    bme.setPressureOversampling(BME680_OS_2X);
+    bme.setHumidityOversampling(BME680_OS_2X);
+    bme.setIIRFilterSize(BME680_FILTER_SIZE_7);
+    bme.setGasHeater(320, 150);
+}
+
+void Bme680::performReading() {
+    if (!bme.performReading()) {
+        Serial.println("Error in Reading Bme680!");
+    }
+}
+
+float Bme680::getQuality() {
+    return bme.gas_resistance / 1000.0;
+}
+
+float Bme680::getHumidity() {
+   return bme.humidity;
+}
+
+float Bme680::getPressure() {
+    return bme.pressure / 100.0;
+}
+
+float Bme680::getTemperature() {
+    return bme.temperature;
+}
+
 void sw_falling_interrupt() {
     startTimeButtonPressed = millis();
     allowSleeping = false;
@@ -1721,7 +1875,7 @@ void andiSetup(Display* d) {
 }
 
 void setup() {
-    //Serial.begin(9600);
+    Serial.begin(9600);
 
     firstRotationState = TIMEOUT;
     lastRotationState = TIMEOUT;
@@ -1746,10 +1900,10 @@ void setup() {
 
     d = new Display();
     // tassiloSetup(d);
-    johannaSetup(d);
+    // johannaSetup(d);
     // luisaSetup(d);
     // stefanieSetup(d);
-    // andiSetup(d);
+    andiSetup(d);
 }
 
 void loop() {
@@ -1779,4 +1933,12 @@ void loop() {
     events->clear();
 
     d->update();
+    /*
+    d->bme680->performReading();
+    Serial.print(d->bme680->getTemperature());
+    Serial.println(" °C");
+    Serial.println(d->bme680->getPressure());
+    Serial.println(d->bme680->getHumidity());
+    Serial.println(d->bme680->getQuality());
+    */
 }
